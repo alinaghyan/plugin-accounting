@@ -60,6 +60,7 @@ final class MDA_Purchase_Service {
    $closed=$db->prepare("SELECT 1 FROM mda_financial_periods WHERE status='closed' AND :date BETWEEN starts_on AND ends_on");$closed->execute(array(':date'=>$doc['document_date']));if($closed->fetchColumn())throw new RuntimeException('ثبت خرید در دوره مالی بسته‌شده مجاز نیست.');
    $lines=$db->prepare('SELECT * FROM mda_purchase_lines WHERE purchase_id=:id ORDER BY line_number');$lines->execute(array(':id'=>$purchaseId));$items=$lines->fetchAll();if(!$items)throw new RuntimeException('فاکتور فاقد ردیف کالا است.');
    $supplierAccount=self::account($db,'2100',true);$inventoryAccount=self::account($db,'1300',false);$cashAccount=$paidMinor>0?self::accountById($db,$cashAccountId):null;
+   $mapping=$db->prepare("SELECT 1 FROM mda_party_control_accounts WHERE role_key='supplier' AND account_id=:account");$mapping->execute(array(':account'=>$supplierAccount));if(!$mapping->fetchColumn())throw new RuntimeException('حساب پرداختنی به تفصیلی تأمین‌کنندگان متصل نشده است.');
    $party=$db->prepare("SELECT 1 FROM mda_party_roles WHERE party_id=:party AND role_key='supplier'");$party->execute(array(':party'=>$doc['supplier_party_id']));if(!$party->fetchColumn())throw new RuntimeException('طرف‌حساب این فاکتور تأمین‌کننده نیست.');
    $subtotal=(int)$doc['subtotal_minor'];$ancillary=(int)$doc['ancillary_cost_minor'];$total=(int)$doc['total_minor'];$allocations=self::allocate($items,$ancillary,$subtotal);
    $documentNumber='MDA-PUR-'.gmdate('Ymd').'-'.strtoupper(bin2hex(random_bytes(4)));$idempotency='purchase-accounting-'.$purchaseId;
@@ -79,7 +80,7 @@ final class MDA_Purchase_Service {
     $state->execute(array(':product'=>$line['product_id'],':variation'=>$line['variation_id'],':warehouse'=>$doc['warehouse_id']));$old=$state->fetch();
     if($old){if((int)$old['quantity_scale']!==$scale||$old['currency_code']!==$doc['currency_code']||(int)$old['quantity_scaled']!==$beforeStock)throw new RuntimeException('وضعیت بهای تمام‌شده با کاردکس موجودی سازگار نیست؛ ابتدا مانده افتتاحیه و بهای آن را تعیین کنید.');$oldQty=(int)$old['quantity_scaled'];$oldCost=(int)$old['average_cost_minor'];}
     else{if($beforeStock!==0)throw new RuntimeException('برای موجودی قبلی این کالا، بهای افتتاحیه ثبت نشده است.');$oldQty=0;$oldCost=0;}
-    $landed=self::mulDiv($line['line_total_minor']+$allocations[$i],$scale,$qty);
+    $landed=self::mulDiv(self::safeAdd((int)$line['line_total_minor'],(int)$allocations[$i]),$scale,$qty);
     $newQty=self::safeAdd($oldQty,$qty);$oldValue=self::safeMul($oldQty,$oldCost);$newValue=self::safeMul($qty,$landed);$newCost=intdiv(self::safeAdd($oldValue,$newValue),$newQty);
     $movement->execute(array(':product'=>$line['product_id'],':variation'=>$line['variation_id'],':warehouse'=>$doc['warehouse_id'],':qty'=>$qty,':scale'=>$scale,':cost'=>$landed,':currency'=>$doc['currency_code'],':source'=>$purchaseId,':key'=>'purchase-receipt-'.$purchaseId.'-'.$line['id'],':now'=>$now,':user'=>get_current_user_id()?:null));
     $price->execute(array(':purchase'=>$purchaseId,':line'=>$line['id'],':product'=>$line['product_id'],':variation'=>$line['variation_id'],':supplier'=>$doc['supplier_party_id'],':qty'=>$qty,':scale'=>$scale,':unit'=>$line['unit_cost_minor'],':landed'=>$landed,':currency'=>$doc['currency_code'],':now'=>$now));
