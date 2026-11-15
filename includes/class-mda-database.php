@@ -17,18 +17,18 @@ final class MDA_Database {
 		$preferred = trailingslashit( dirname( untrailingslashit( ABSPATH ) ) ) . 'malidev-accounting-private';
 		$fallback  = trailingslashit( WP_CONTENT_DIR ) . 'malidev-accounting-private';
 		$custom    = defined( 'MDA_PRIVATE_DATA_DIR' ) ? MDA_PRIVATE_DATA_DIR : '';
+		$server    = isset( $_SERVER['SERVER_SOFTWARE'] ) ? strtolower( (string) $_SERVER['SERVER_SOFTWARE'] ) : '';
+		$known_protected_server = false !== strpos( $server, 'apache' ) || false !== strpos( $server, 'litespeed' ) || false !== strpos( $server, 'iis' );
 
 		$candidates = array_filter( array( $custom, $preferred ) );
-
-		// مسیر داخل wp-content فقط روی وب‌سرورهای شناخته‌شده با فایل deny ساخته می‌شود.
-		$server = isset( $_SERVER['SERVER_SOFTWARE'] ) ? strtolower( (string) $_SERVER['SERVER_SOFTWARE'] ) : '';
-		if ( false !== strpos( $server, 'apache' ) || false !== strpos( $server, 'litespeed' ) || false !== strpos( $server, 'iis' ) ) {
+		if ( $known_protected_server ) {
 			$candidates[] = $fallback;
 		}
 
 		foreach ( $candidates as $directory ) {
 			$directory = untrailingslashit( $directory );
-			if ( self::prepare_directory( $directory ) ) {
+			$allow_webroot = $known_protected_server && $directory === untrailingslashit( $fallback );
+			if ( self::prepare_directory( $directory, $allow_webroot ) ) {
 				self::$database_path = $directory . DIRECTORY_SEPARATOR . 'accounting.sqlite';
 				return self::$database_path;
 			}
@@ -37,11 +37,11 @@ final class MDA_Database {
 		throw new RuntimeException( 'مسیر خصوصی دیتابیس قابل ایجاد نیست. مقدار MDA_PRIVATE_DATA_DIR را در wp-config.php به یک مسیر خارج از web root تنظیم کنید.' );
 	}
 
-	private static function prepare_directory( string $directory ): bool {
+	private static function prepare_directory( string $directory, bool $allow_webroot = false ): bool {
 		if ( ! is_dir( $directory ) && ! wp_mkdir_p( $directory ) ) {
 			return false;
 		}
-		if ( ! is_writable( $directory ) ) {
+		if ( ! is_writable( $directory ) || ! self::is_private_location( $directory, $allow_webroot ) ) {
 			return false;
 		}
 
@@ -65,6 +65,18 @@ final class MDA_Database {
 		}
 
 		return is_writable( $directory );
+	}
+
+	private static function is_private_location( string $directory, bool $allow_webroot ): bool {
+		$root = isset( $_SERVER['DOCUMENT_ROOT'] ) ? realpath( (string) $_SERVER['DOCUMENT_ROOT'] ) : false;
+		$path = realpath( $directory );
+		if ( false === $root || false === $path ) {
+			return false;
+		}
+		$root = rtrim( wp_normalize_path( $root ), '/' ) . '/';
+		$path = trailingslashit( wp_normalize_path( $path ) );
+		$is_inside_webroot = 0 === strpos( $path, $root );
+		return ! $is_inside_webroot || $allow_webroot;
 	}
 
 	public static function connection(): PDO {
