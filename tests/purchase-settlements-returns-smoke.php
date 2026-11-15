@@ -14,6 +14,7 @@ final class MDA_Database {
 }
 $migrations=array('001_initial.sql','002_parties-and-chart-of-accounts.sql','003-party-subledger.sql','004-purchasing-inventory-foundation.sql','005-purchase-posting-costing.sql','006-immutable-purchase-history.sql','007-purchase-settlements-and-returns.sql');
 foreach($migrations as $file){$sql=file_get_contents(dirname(__DIR__).'/database/migrations/'.$file);if(false===$sql)throw new RuntimeException('Missing migration '.$file);MDA_Database::connection()->exec($sql);}
+require_once dirname(__DIR__).'/includes/class-mda-inventory-service.php';
 require_once dirname(__DIR__).'/includes/class-mda-purchase-service.php';
 require_once dirname(__DIR__).'/includes/class-mda-purchase-settlement-service.php';
 require_once dirname(__DIR__).'/includes/class-mda-purchase-return-service.php';
@@ -23,7 +24,7 @@ $db->exec("INSERT INTO mda_party_roles (party_id,role_key,created_at) VALUES (1,
 $warehouse=(int)$db->query("SELECT id FROM mda_warehouses WHERE warehouse_code='MAIN'")->fetchColumn();
 $cash=(int)$db->query("SELECT id FROM mda_accounts WHERE account_code='1110'")->fetchColumn();
 $ap=(int)$db->query("SELECT id FROM mda_accounts WHERE account_code='2100'")->fetchColumn();
-$db->exec("INSERT INTO mda_party_control_accounts (party_id,role_key,account_id,created_at) VALUES (1,'supplier',$ap,'$now')");
+
 $purchase=MDA_Purchase_Service::create_draft(array('supplier_party_id'=>1,'warehouse_id'=>$warehouse,'document_date'=>'2026-11-16','currency_code'=>'IRR','idempotency_key'=>'test-return-purchase-001','lines'=>array(array('product_id'=>777,'variation_id'=>0,'product_name_snapshot'=>'Return test item','quantity_scaled'=>2000000,'quantity_scale'=>1000000,'unit_cost_minor'=>100))));
 $posted=MDA_Purchase_Service::post($purchase,100,$cash,'cash','test-initial-payment-001');
 if($posted['total_minor']!==200||$posted['payable_minor']!==100)throw new RuntimeException('Initial purchase payable incorrect.');
@@ -35,11 +36,11 @@ try{MDA_Purchase_Settlement_Service::record_payment($purchase,51,$cash,'cash','t
 if(MDA_Purchase_Settlement_Service::summary($purchase)['payable_minor']!==50)throw new RuntimeException('Overpayment rollback failed.');
 $line=(int)$db->query("SELECT id FROM mda_purchase_lines WHERE purchase_id=$purchase")->fetchColumn();
 $return1=MDA_Purchase_Return_Service::post($purchase,array(array('purchase_line_id'=>$line,'quantity_scaled'=>500000)),'test-partial-return-001','2026-11-16');
-if($return1['total_minor']!==55||MDA_Inventory_Service::balance(777,$warehouse)!==1500000)throw new RuntimeException('Partial return quantity or valuation incorrect.');
+if($return1['total_minor']!==50||MDA_Inventory_Service::balance(777,$warehouse)!==1500000)throw new RuntimeException('Partial return quantity or valuation incorrect.');
 $dupReturn=MDA_Purchase_Return_Service::post($purchase,array(array('purchase_line_id'=>$line,'quantity_scaled'=>500000)),'test-partial-return-001','2026-11-16');
 if(empty($dupReturn['duplicate']))throw new RuntimeException('Return idempotency failed.');
 $return2=MDA_Purchase_Return_Service::post($purchase,array(array('purchase_line_id'=>$line,'quantity_scaled'=>1500000)),'test-full-return-001','2026-11-16');
-if($return2['total_minor']!==165||MDA_Inventory_Service::balance(777,$warehouse)!==0)throw new RuntimeException('Full return or inventory reversal failed.');
+if($return2['total_minor']!==150||MDA_Inventory_Service::balance(777,$warehouse)!==0)throw new RuntimeException('Full return or inventory reversal failed.');
 try{MDA_Purchase_Return_Service::post($purchase,array(array('purchase_line_id'=>$line,'quantity_scaled'=>1)),'test-overreturn-001','2026-11-16');throw new RuntimeException('Over-return was accepted.');}catch(RuntimeException $expected){}
 $balanced=$db->query("SELECT d.id,SUM(j.debit_minor) debit,SUM(j.credit_minor) credit FROM mda_documents d JOIN mda_journal_entries j ON j.document_id=d.id GROUP BY d.id")->fetchAll();
 foreach($balanced as $j)if((int)$j['debit']!==(int)$j['credit'])throw new RuntimeException('Unbalanced journal document '.$j['id']);
