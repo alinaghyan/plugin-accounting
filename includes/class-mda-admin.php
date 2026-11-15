@@ -26,7 +26,7 @@ final class MDA_Admin {
   self::guard();$available=MDA_Database::is_available();$connected=false;$error='';$integrity='';
   if($available){try{$pdo=MDA_Database::connection();$connected=true;$integrity=(string)$pdo->query('PRAGMA quick_check')->fetchColumn();}catch(Throwable $e){$error=$e->getMessage();}}
   ?>
-  <div class="wrap" dir="rtl"><h1>حسابداری MaliDev</h1><p>نسخه توسعه‌ای هسته حسابداری؛ هنوز ثبت فروش و خرید عملیاتی فعال نشده است.</p>
+  <div class="wrap" dir="rtl"><h1>حسابداری MaliDev</h1><p>نسخه توسعه‌ای هسته حسابداری؛ ثبت خرید و قطعی‌سازی آن فعال است. اتصال فروش ووکامرس هنوز فعال نشده است.</p>
   <table class="widefat striped" style="max-width:900px"><tbody>
   <tr><th>نسخه افزونه</th><td><?php echo esc_html(MDA_VERSION); ?></td></tr>
   <tr><th>PDO_SQLite</th><td><?php echo $available?'فعال':'غیرفعال'; ?></td></tr>
