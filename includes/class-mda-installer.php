@@ -18,7 +18,8 @@ final class MDA_Installer {
    2=>array('002_parties-and-chart-of-accounts.sql','فایل مهاجرت طرف‌حساب و کدینگ پیدا نشد.'),
    3=>array('003-party-subledger.sql','فایل مهاجرت تفصیلی اشخاص پیدا نشد.'),
    4=>array('004-purchasing-inventory-foundation.sql','فایل مهاجرت خرید و انبار پیدا نشد.'),
-   5=>array('005-purchase-posting-costing.sql','فایل مهاجرت قطعی‌سازی خرید و بهای تمام‌شده پیدا نشد.'),\n   6=>array('006-immutable-purchase-history.sql','فایل محافظت از سوابق خرید پیدا نشد.')
+   5=>array('005-purchase-posting-costing.sql','فایل مهاجرت قطعی‌سازی خرید و بهای تمام‌شده پیدا نشد.'),
+   6=>array('006-immutable-purchase-history.sql','فایل محافظت از سوابق خرید پیدا نشد.')
   );
   foreach($migrations as $target=>$migration){
    if($version >= $target) continue;
