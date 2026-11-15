@@ -54,10 +54,21 @@ final class MDA_Ledger_Service {
 				}
 
 				foreach ( $lines as $line ) {
-					$account = $pdo->prepare( 'SELECT id FROM mda_accounts WHERE id = :id AND is_active = 1 LIMIT 1' );
+					$account = $pdo->prepare( 'SELECT id,is_control FROM mda_accounts WHERE id = :id AND is_active = 1 AND archived_at IS NULL LIMIT 1' );
 					$account->execute( array( ':id' => $line['account_id'] ) );
-					if ( ! $account->fetchColumn() ) {
+					$account_row = $account->fetch();
+					if ( ! $account_row ) {
 						throw new InvalidArgumentException( 'یکی از حساب‌های سند وجود ندارد یا غیرفعال است.' );
+					}
+					if ( 1 === (int) $account_row['is_control'] ) {
+						if ( empty( $line['party_id'] ) ) {
+							throw new InvalidArgumentException( 'ثبت روی حساب کنترلی بدون تفصیلی طرف‌حساب مجاز نیست.' );
+						}
+						$party_role = $pdo->prepare( 'SELECT 1 FROM mda_party_control_accounts m JOIN mda_party_roles r ON r.role_key=m.role_key WHERE m.account_id=:account AND r.party_id=:party LIMIT 1' );
+						$party_role->execute( array( ':account' => $line['account_id'], ':party' => $line['party_id'] ) );
+						if ( ! $party_role->fetchColumn() ) {
+							throw new InvalidArgumentException( 'طرف‌حساب نقش متناظر با حساب کنترلی را ندارد یا حساب به آن نقش متصل نیست.' );
+						}
 					}
 				}
 
