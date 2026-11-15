@@ -18,7 +18,6 @@ CREATE TABLE IF NOT EXISTS mda_parties (
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );
-
 CREATE INDEX IF NOT EXISTS idx_mda_parties_phone ON mda_parties(phone);
 CREATE INDEX IF NOT EXISTS idx_mda_parties_name ON mda_parties(display_name);
 
@@ -42,6 +41,7 @@ CREATE TABLE IF NOT EXISTS mda_documents (
     source_type TEXT,
     source_id TEXT,
     idempotency_key TEXT UNIQUE,
+    payload_hash TEXT,
     currency_code TEXT NOT NULL DEFAULT 'IRR',
     amount_scale INTEGER NOT NULL DEFAULT 1,
     document_date TEXT NOT NULL,
@@ -54,7 +54,6 @@ CREATE TABLE IF NOT EXISTS mda_documents (
     FOREIGN KEY (party_id) REFERENCES mda_parties(id),
     FOREIGN KEY (reversal_document_id) REFERENCES mda_documents(id)
 );
-
 CREATE INDEX IF NOT EXISTS idx_mda_documents_date ON mda_documents(document_date);
 CREATE INDEX IF NOT EXISTS idx_mda_documents_party ON mda_documents(party_id);
 CREATE INDEX IF NOT EXISTS idx_mda_documents_source ON mda_documents(source_type, source_id);
@@ -75,7 +74,6 @@ CREATE TABLE IF NOT EXISTS mda_journal_entries (
     FOREIGN KEY (account_id) REFERENCES mda_accounts(id),
     FOREIGN KEY (party_id) REFERENCES mda_parties(id)
 );
-
 CREATE INDEX IF NOT EXISTS idx_mda_journal_account ON mda_journal_entries(account_id);
 CREATE INDEX IF NOT EXISTS idx_mda_journal_party ON mda_journal_entries(party_id);
 
@@ -104,7 +102,6 @@ CREATE TABLE IF NOT EXISTS mda_inventory_movements (
     created_by INTEGER,
     FOREIGN KEY (warehouse_id) REFERENCES mda_warehouses(id)
 );
-
 CREATE INDEX IF NOT EXISTS idx_mda_inventory_product ON mda_inventory_movements(product_id, variation_id, warehouse_id, occurred_at);
 
 CREATE TABLE IF NOT EXISTS mda_product_cost_state (
@@ -134,7 +131,6 @@ CREATE TABLE IF NOT EXISTS mda_integration_outbox (
     created_at TEXT NOT NULL,
     processed_at TEXT
 );
-
 CREATE INDEX IF NOT EXISTS idx_mda_outbox_queue ON mda_integration_outbox(status, available_at);
 
 CREATE TABLE IF NOT EXISTS mda_audit_logs (
@@ -148,7 +144,6 @@ CREATE TABLE IF NOT EXISTS mda_audit_logs (
     ip_hash TEXT,
     created_at TEXT NOT NULL
 );
-
 CREATE INDEX IF NOT EXISTS idx_mda_audit_object ON mda_audit_logs(object_type, object_id, created_at);
 
 CREATE TABLE IF NOT EXISTS mda_financial_periods (

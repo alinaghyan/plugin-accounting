@@ -21,6 +21,7 @@ define( 'MDA_URL', plugin_dir_url( __FILE__ ) );
 require_once MDA_PATH . 'includes/class-mda-database.php';
 require_once MDA_PATH . 'includes/class-mda-installer.php';
 require_once MDA_PATH . 'includes/class-mda-capabilities.php';
+require_once MDA_PATH . 'includes/class-mda-ledger-service.php';
 require_once MDA_PATH . 'includes/class-mda-admin.php';
 require_once MDA_PATH . 'includes/class-mda-plugin.php';
 
