@@ -64,7 +64,7 @@ final class MDA_Ledger_Service {
 						if ( empty( $line['party_id'] ) ) {
 							throw new InvalidArgumentException( 'ثبت روی حساب کنترلی بدون تفصیلی طرف‌حساب مجاز نیست.' );
 						}
-						$party_role = $pdo->prepare( 'SELECT 1 FROM mda_party_control_accounts m JOIN mda_party_roles r ON r.role_key=m.role_key WHERE m.account_id=:account AND r.party_id=:party LIMIT 1' );
+						$party_role = $pdo->prepare( 'SELECT 1 FROM mda_party_control_accounts m JOIN mda_party_roles r ON r.role_key=m.role_key JOIN mda_parties p ON p.id=r.party_id WHERE m.account_id=:account AND r.party_id=:party AND p.is_active=1 AND p.archived_at IS NULL LIMIT 1' );
 						$party_role->execute( array( ':account' => $line['account_id'], ':party' => $line['party_id'] ) );
 						if ( ! $party_role->fetchColumn() ) {
 							throw new InvalidArgumentException( 'طرف‌حساب نقش متناظر با حساب کنترلی را ندارد یا حساب به آن نقش متصل نیست.' );
