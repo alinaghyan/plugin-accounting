@@ -13,6 +13,7 @@ final class MDA_Admin {
   add_menu_page(__('حسابداری MaliDev','malidev-accounting'),__('حسابداری','malidev-accounting'),MDA_Capabilities::MANAGE,'mda-accounting',array(__CLASS__,'render'),'dashicons-chart-area',56);
   add_submenu_page('mda-accounting','طرف‌حساب‌ها','طرف‌حساب‌ها',MDA_Capabilities::MANAGE,'mda-parties',array(__CLASS__,'render_parties'));
   add_submenu_page('mda-accounting','کدینگ حساب‌ها','کدینگ حساب‌ها',MDA_Capabilities::MANAGE,'mda-accounts',array(__CLASS__,'render_accounts'));
+  add_submenu_page('mda-accounting','گردش حساب اشخاص','گردش حساب اشخاص',MDA_Capabilities::MANAGE,'mda-party-ledger',array(__CLASS__,'render_party_ledger'));
  }
 
  private static function guard(): void {
@@ -96,6 +97,36 @@ final class MDA_Admin {
   <table class="widefat striped"><thead><tr><th>کد</th><th>نام حساب</th><th>گروه</th><th>حساب پدر</th><th>ماهیت</th><th>وضعیت</th><th>ویژگی</th></tr></thead><tbody>
   <?php foreach($rows as $r): ?><tr><td><?php echo esc_html($r['account_code']); ?></td><td><?php echo esc_html($r['account_name']); ?></td><td><?php echo esc_html($types[$r['account_type']]??$r['account_type']); ?></td><td><?php echo esc_html(trim(($r['parent_code']??'').' '.($r['parent_name']??''))); ?></td><td><?php echo 'debit'===$r['normal_balance']?'بدهکار':'بستانکار'; ?></td><td><?php echo (int)$r['is_active']?'فعال':'غیرفعال'; ?></td><td><?php echo (int)$r['is_system']?'سیستمی':''; ?> <?php echo (int)$r['is_control']?'کنترلی':''; ?></td></tr><?php endforeach; ?>
   </tbody></table></div>
+  <?php
+ }
+
+ public static function render_party_ledger(): void {
+  self::guard();
+  if(!MDA_Database::is_available()){echo '<div class="wrap"><div class="notice notice-error"><p>برای مشاهده گردش حساب باید PDO_SQLite فعال باشد.</p></div></div>';return;}
+  $parties=MDA_Party_Service::search('',200);$role=sanitize_key(wp_unslash($_GET['role']??'customer'));if(!in_array($role,array('customer','supplier'),true))$role='customer';
+  $party_id=absint($_GET['party_id']??0);$from=sanitize_text_field(wp_unslash($_GET['from']??date('Y-m-01')));$to=sanitize_text_field(wp_unslash($_GET['to']??current_time('Y-m-d')));$statement=null;$error='';
+  if($party_id){try{$statement=MDA_Party_Ledger_Service::statement($party_id,$role,$from,$to);}catch(Throwable $e){$error=$e->getMessage();}}
+  $fmt=static function($amount): string {return number_format((int)$amount,0,'.',',');};
+  ?>
+  <div class="wrap" dir="rtl"><h1>گردش حساب اشخاص</h1><p>این گزارش مستقیماً از اسناد قطعی دفتر روزنامه محاسبه می‌شود؛ مانده جداگانه‌ای ذخیره نمی‌شود.</p>
+  <?php self::notices(); if($error): ?><div class="notice notice-error"><p><?php echo esc_html($error); ?></p></div><?php endif; ?>
+  <form method="get" style="background:#fff;padding:16px;max-width:1000px;margin:14px 0"><input type="hidden" name="page" value="mda-party-ledger">
+  <label>طرف‌حساب <select name="party_id" required><option value="">انتخاب کنید</option><?php foreach($parties as $p): ?><option value="<?php echo (int)$p['id']; ?>" <?php selected($party_id,(int)$p['id']); ?>><?php echo esc_html($p['party_code'].' — '.$p['display_name']); ?></option><?php endforeach; ?></select></label>
+  <label>نوع حساب <select name="role"><option value="customer" <?php selected($role,'customer'); ?>>مشتری / دریافتنی</option><option value="supplier" <?php selected($role,'supplier'); ?>>تأمین‌کننده / پرداختنی</option></select></label>
+  <label>از تاریخ <input type="date" name="from" value="<?php echo esc_attr($from); ?>" required></label>
+  <label>تا تاریخ <input type="date" name="to" value="<?php echo esc_attr($to); ?>" required></label>
+  <button class="button button-primary">نمایش گردش</button></form>
+  <?php if($statement): ?>
+  <h2><?php echo esc_html($statement['party']['display_name']); ?> — <?php echo 'customer'===$role?'حساب دریافتنی':'حساب پرداختنی'; ?></h2>
+  <p>حساب کنترلی: <?php echo esc_html($statement['party']['account_code'].' — '.$statement['party']['account_name']); ?></p>
+  <table class="widefat striped" style="max-width:1000px"><tbody>
+  <tr><th>مانده اول دوره</th><td><?php echo esc_html($fmt(abs($statement['opening_balance_minor']))); ?> <?php echo $statement['opening_balance_minor']<0?'بستانکار':'بدهکار'; ?></td></tr>
+  <tr><th>مانده پایان دوره</th><td><strong><?php echo esc_html($fmt(abs($statement['closing_balance_minor']))); ?> <?php echo $statement['closing_balance_minor']<0?'بستانکار':'بدهکار'; ?></strong></td></tr>
+  </tbody></table>
+  <table class="widefat striped" style="margin-top:12px;max-width:1200px"><thead><tr><th>تاریخ</th><th>شماره سند</th><th>شرح</th><th>بدهکار</th><th>بستانکار</th><th>مانده</th></tr></thead><tbody>
+  <?php foreach($statement['lines'] as $line): ?><tr><td><?php echo esc_html($line['document_date']); ?></td><td><?php echo esc_html($line['document_number']); ?></td><td><?php echo esc_html($line['memo']?:$line['description']); ?></td><td><?php echo esc_html($fmt($line['debit_minor'])); ?></td><td><?php echo esc_html($fmt($line['credit_minor'])); ?></td><td><?php echo esc_html($fmt(abs($line['running_balance_minor'])).' '.($line['running_balance_minor']<0?'بستانکار':'بدهکار')); ?></td></tr><?php endforeach; ?>
+  <?php if(empty($statement['lines'])): ?><tr><td colspan="6">در بازه انتخاب‌شده گردش ثبت‌شده‌ای وجود ندارد.</td></tr><?php endif; ?></tbody></table>
+  <?php endif; ?></div>
   <?php
  }
 
