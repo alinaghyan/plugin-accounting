@@ -2,7 +2,7 @@
 defined( 'ABSPATH' ) || exit;
 
 final class MDA_Installer {
- private const SCHEMA_VERSION=2;
+ private const SCHEMA_VERSION=3;
 
  public static function activate(): void {
   if(!MDA_Database::is_available()) wp_die(esc_html__('برای نصب MaliDev Accounting باید افزونه PHP با نام PDO_SQLite فعال باشد.','malidev-accounting'),esc_html__('پیش‌نیاز نصب موجود نیست','malidev-accounting'),array('back_link'=>true));
@@ -23,6 +23,10 @@ final class MDA_Installer {
   if($version<2){
    $sql=file_get_contents(MDA_PATH.'database/migrations/002_parties-and-chart-of-accounts.sql');if(false===$sql)throw new RuntimeException('فایل مهاجرت طرف‌حساب و کدینگ پیدا نشد.');
    MDA_Database::transaction(static function(PDO $db) use($sql): void {$db->exec($sql);$q=$db->prepare("UPDATE mda_settings SET setting_value='2',updated_at=:now WHERE setting_key='schema_version'");$q->execute(array(':now'=>gmdate('Y-m-d H:i:s')));});
+  }
+  if($version<3){
+   $sql=file_get_contents(MDA_PATH.'database/migrations/003-party-subledger.sql');if(false===$sql)throw new RuntimeException('فایل مهاجرت تفصیلی اشخاص پیدا نشد.');
+   MDA_Database::transaction(static function(PDO $db) use($sql): void {$db->exec($sql);$q=$db->prepare("UPDATE mda_settings SET setting_value='3',updated_at=:now WHERE setting_key='schema_version'");$q->execute(array(':now'=>gmdate('Y-m-d H:i:s')));});
   }
   update_option('mda_schema_version',self::SCHEMA_VERSION,false);
  }
