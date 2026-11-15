@@ -27,3 +27,5 @@ jobs:
         run: php tests/sqlite-schema-smoke.php
       - name: Purchase workflow integration smoke test
         run: php tests/purchase-workflow-smoke.php
+      - name: Purchase settlement and return integration smoke test
+        run: php tests/purchase-settlements-returns-smoke.php
