@@ -86,7 +86,7 @@ final class MDA_Admin {
  }
 
  private static function parse_quantity(string $value): int {
-  $value=str_replace(array(',','٫'),array('.','.'),trim($value));
+  $value=strtr(trim($value),array('۰'=>'0','۱'=>'1','۲'=>'2','۳'=>'3','۴'=>'4','۵'=>'5','۶'=>'6','۷'=>'7','۸'=>'8','۹'=>'9','٠'=>'0','١'=>'1','٢'=>'2','٣'=>'3','٤'=>'4','٥'=>'5','٦'=>'6','٧'=>'7','٨'=>'8','٩'=>'9',','=>'.','٫'=>'.'));
   if(!preg_match('/^(?:0|[1-9][0-9]*)(?:\\.[0-9]{1,6})?$/',$value))throw new InvalidArgumentException('مقدار کالا باید عدد مثبت با حداکثر ۶ رقم اعشار باشد.');
   $parts=explode('.',$value);$whole=(int)$parts[0];$fraction=str_pad($parts[1]??'',6,'0');if($whole>intdiv(PHP_INT_MAX,1000000))throw new OverflowException('مقدار کالا بیش از حد مجاز است.');
   $scaled=$whole*1000000+(int)$fraction;if($scaled<1)throw new InvalidArgumentException('مقدار کالا باید بزرگ‌تر از صفر باشد.');return $scaled;
