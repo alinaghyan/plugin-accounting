@@ -56,7 +56,7 @@ final class MDA_Admin {
  }
 
  public static function render_parties(): void {
-  self::guard();$edit=!empty($_GET['edit'])?MDA_Party_Service::get(absint($_GET['edit'])):null;$roles=array('customer'=>'مشتری','supplier'=>'تأمین‌کننده','employee'=>'کارمند','partner'=>'شریک','other'=>'سایر');$rows=MDA_Party_Service::search(sanitize_text_field(wp_unslash($_GET['s']??'')));
+  self::guard();if(!MDA_Database::is_available()){echo '<div class="wrap"><div class="notice notice-error"><p>برای مدیریت طرف‌حساب‌ها باید PDO_SQLite فعال باشد.</p></div></div>';return;}$edit=!empty($_GET['edit'])?MDA_Party_Service::get(absint($_GET['edit'])):null;$roles=array('customer'=>'مشتری','supplier'=>'تأمین‌کننده','employee'=>'کارمند','partner'=>'شریک','other'=>'سایر');$rows=MDA_Party_Service::search(sanitize_text_field(wp_unslash($_GET['s']??'')));
   ?>
   <div class="wrap" dir="rtl"><h1>مدیریت طرف‌حساب‌ها</h1><?php self::notices(); ?>
   <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" style="max-width:900px;background:#fff;padding:18px;margin:16px 0">
@@ -82,7 +82,7 @@ final class MDA_Admin {
  }
 
  public static function render_accounts(): void {
-  self::guard();$rows=MDA_Account_Service::all(true);$types=array('asset'=>'دارایی','liability'=>'بدهی','equity'=>'حقوق مالکانه','income'=>'درآمد','expense'=>'هزینه');
+  self::guard();if(!MDA_Database::is_available()){echo '<div class="wrap"><div class="notice notice-error"><p>برای مدیریت کدینگ حساب‌ها باید PDO_SQLite فعال باشد.</p></div></div>';return;}$rows=MDA_Account_Service::all(true);$types=array('asset'=>'دارایی','liability'=>'بدهی','equity'=>'حقوق مالکانه','income'=>'درآمد','expense'=>'هزینه');
   ?>
   <div class="wrap" dir="rtl"><h1>کدینگ حساب‌ها</h1><?php self::notices(); ?>
   <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" style="max-width:900px;background:#fff;padding:18px;margin:16px 0">
