@@ -35,4 +35,6 @@ $journal=$db->query("SELECT SUM(debit_minor) d,SUM(credit_minor) c FROM mda_jour
 if((int)$journal['d']!==220||(int)$journal['c']!==220)throw new RuntimeException('Purchase journal is not balanced.');
 $again=MDA_Purchase_Service::post($draft,100,(int)$db->query("SELECT id FROM mda_accounts WHERE account_code='1110'")->fetchColumn(),'cash','test-purchase-payment-001');
 if(empty($again['duplicate'])||(int)$db->query("SELECT COUNT(*) FROM mda_inventory_movements WHERE source_id='".(int)$draft."'")->fetchColumn()!==1)throw new RuntimeException('Purchase posting is not idempotent.');
-echo "OK: atomic purchase posting, stock receipt, supplier payable, cash payment, price history, weighted-average cost and idempotency passed.\\n";
+try{$db->exec("UPDATE mda_purchase_price_history SET unit_cost_minor=1 WHERE product_id=77");throw new RuntimeException('Purchase price history immutability failed.');}catch(PDOException $expected){}
+try{$db->exec("DELETE FROM mda_purchase_payments WHERE purchase_id=".(int)$draft);throw new RuntimeException('Payment history immutability failed.');}catch(PDOException $expected){}
+echo "OK: atomic purchase posting, stock receipt, supplier payable, cash payment, price history, weighted-average cost, idempotency and immutable history passed.\\n";
