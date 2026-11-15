@@ -18,7 +18,7 @@ final class MDA_Purchase_Service {
   foreach(array_values($lines) as $i=>$line){
    $product=(int)($line['product_id']??0);$variation=(int)($line['variation_id']??0);$qty=$line['quantity_scaled']??null;$qscale=(int)($line['quantity_scale']??1000000);$unit=$line['unit_cost_minor']??null;
    if($product<1||$variation<0||!is_int($qty)||$qty<1||$qscale<1||$qscale>1000000000||!is_int($unit)||$unit<0)throw new InvalidArgumentException('شناسه کالا، مقدار، مقیاس یا قیمت خرید یکی از ردیف‌ها معتبر نیست.');
-   $lineTotal=self::mulDiv($qty,$unit,$qscale);$subtotal=self::safeAdd($subtotal,$lineTotal);
+   $lineTotal=self::mulDivRound($qty,$unit,$qscale);$subtotal=self::safeAdd($subtotal,$lineTotal);
    $name=trim(sanitize_text_field((string)($line['product_name_snapshot']??'')));$sku=isset($line['sku_snapshot'])?sanitize_text_field((string)$line['sku_snapshot']):null;
    if(''===$name){if(function_exists('wc_get_product')){$p=wc_get_product($variation?:$product);if($p){$name=$p->get_name();$sku=$p->get_sku();}}}
    if(''===$name)throw new InvalidArgumentException('نام کالا برای ذخیره snapshot الزامی است.');
@@ -80,8 +80,8 @@ final class MDA_Purchase_Service {
     $state->execute(array(':product'=>$line['product_id'],':variation'=>$line['variation_id'],':warehouse'=>$doc['warehouse_id']));$old=$state->fetch();
     if($old){if((int)$old['quantity_scale']!==$scale||$old['currency_code']!==$doc['currency_code']||(int)$old['quantity_scaled']!==$beforeStock)throw new RuntimeException('وضعیت بهای تمام‌شده با کاردکس موجودی سازگار نیست؛ ابتدا مانده افتتاحیه و بهای آن را تعیین کنید.');$oldQty=(int)$old['quantity_scaled'];$oldCost=(int)$old['average_cost_minor'];}
     else{if($beforeStock!==0)throw new RuntimeException('برای موجودی قبلی این کالا، بهای افتتاحیه ثبت نشده است.');$oldQty=0;$oldCost=0;}
-    $landed=self::mulDiv(self::safeAdd((int)$line['line_total_minor'],(int)$allocations[$i]),$scale,$qty);
-    $newQty=self::safeAdd($oldQty,$qty);$oldValue=self::safeMul($oldQty,$oldCost);$newValue=self::safeMul($qty,$landed);$newCost=intdiv(self::safeAdd($oldValue,$newValue),$newQty);
+    $landed=self::mulDivRound(self::safeAdd((int)$line['line_total_minor'],(int)$allocations[$i]),$scale,$qty);
+    $newQty=self::safeAdd($oldQty,$qty);$oldValue=self::safeMul($oldQty,$oldCost);$newValue=self::safeMul($qty,$landed);$newCost=self::mulDivRound(self::safeAdd($oldValue,$newValue),1,$newQty);
     $movement->execute(array(':product'=>$line['product_id'],':variation'=>$line['variation_id'],':warehouse'=>$doc['warehouse_id'],':qty'=>$qty,':scale'=>$scale,':cost'=>$landed,':currency'=>$doc['currency_code'],':source'=>$purchaseId,':key'=>'purchase-receipt-'.$purchaseId.'-'.$line['id'],':now'=>$now,':user'=>get_current_user_id()?:null));
     $price->execute(array(':purchase'=>$purchaseId,':line'=>$line['id'],':product'=>$line['product_id'],':variation'=>$line['variation_id'],':supplier'=>$doc['supplier_party_id'],':qty'=>$qty,':scale'=>$scale,':unit'=>$line['unit_cost_minor'],':landed'=>$landed,':currency'=>$doc['currency_code'],':now'=>$now));
     $costHistory->execute(array(':purchase'=>$purchaseId,':line'=>$line['id'],':product'=>$line['product_id'],':variation'=>$line['variation_id'],':warehouse'=>$doc['warehouse_id'],':before'=>$oldQty,':after'=>$newQty,':oldcost'=>$oldCost,':newcost'=>$newCost,':currency'=>$doc['currency_code'],':now'=>$now));
@@ -109,5 +109,5 @@ final class MDA_Purchase_Service {
  private static function allocate(array $lines,int $amount,int $subtotal):array {$out=array();$used=0;$last=count($lines)-1;foreach($lines as $i=>$line){if($i===$last){$out[]=$amount-$used;continue;}$part=$subtotal>0?self::mulDiv($amount,(int)$line['line_total_minor'],$subtotal):0;$out[]=$part;$used=self::safeAdd($used,$part);}return$out;}
  private static function safeAdd(int $a,int $b):int {if($b>0&&$a>PHP_INT_MAX-$b)throw new OverflowException('مجموع مبلغ از ظرفیت عدد صحیح بیشتر است.');return$a+$b;}
  private static function safeMul(int $a,int $b):int {if($a<0||$b<0||($a>0&&$b>intdiv(PHP_INT_MAX,$a)))throw new OverflowException('حاصل‌ضرب برای محاسبه دقیق خارج از ظرفیت عدد صحیح است.');return$a*$b;}
- private static function mulDiv(int $a,int $b,int $divisor):int {if($divisor<1)throw new InvalidArgumentException('مقسوم‌علیه نامعتبر است.');return intdiv(self::safeMul($a,$b),$divisor);}
+ private static function mulDiv(int $a,int $b,int $divisor):int {if($divisor<1)throw new InvalidArgumentException('مقسوم‌علیه نامعتبر است.');return intdiv(self::safeMul($a,$b),$divisor);}\n private static function mulDivRound(int $a,int $b,int $divisor):int {if($divisor<1)throw new InvalidArgumentException('مقسوم‌علیه نامعتبر است.');$product=self::safeMul($a,$b);$quotient=intdiv($product,$divisor);$remainder=$product%$divisor;if($remainder>=intdiv($divisor,2)+($divisor%2))$quotient=self::safeAdd($quotient,1);return$quotient;}
 }
