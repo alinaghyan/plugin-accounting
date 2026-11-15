@@ -106,7 +106,7 @@ final class MDA_Admin {
   $parties=MDA_Party_Service::search('',200);$role=sanitize_key(wp_unslash($_GET['role']??'customer'));if(!in_array($role,array('customer','supplier'),true))$role='customer';
   $party_id=absint($_GET['party_id']??0);$from=sanitize_text_field(wp_unslash($_GET['from']??date('Y-m-01')));$to=sanitize_text_field(wp_unslash($_GET['to']??current_time('Y-m-d')));$statement=null;$error='';
   if($party_id){try{$statement=MDA_Party_Ledger_Service::statement($party_id,$role,$from,$to);}catch(Throwable $e){$error=$e->getMessage();}}
-  $fmt=static function($amount): string {return number_format((int)$amount,0,'.',',');};
+  $fmt=static function($amount): string {return number_format((int)$amount,0,'.',',');};$balance_label=static function($amount,$normal): string {$is_normal=(int)$amount>=0;$is_debit=('debit'===$normal)===$is_normal;return $is_debit?'بدهکار':'بستانکار';};
   ?>
   <div class="wrap" dir="rtl"><h1>گردش حساب اشخاص</h1><p>این گزارش مستقیماً از اسناد قطعی دفتر روزنامه محاسبه می‌شود؛ مانده جداگانه‌ای ذخیره نمی‌شود.</p>
   <?php self::notices(); if($error): ?><div class="notice notice-error"><p><?php echo esc_html($error); ?></p></div><?php endif; ?>
@@ -120,11 +120,11 @@ final class MDA_Admin {
   <h2><?php echo esc_html($statement['party']['display_name']); ?> — <?php echo 'customer'===$role?'حساب دریافتنی':'حساب پرداختنی'; ?></h2>
   <p>حساب کنترلی: <?php echo esc_html($statement['party']['account_code'].' — '.$statement['party']['account_name']); ?></p>
   <table class="widefat striped" style="max-width:1000px"><tbody>
-  <tr><th>مانده اول دوره</th><td><?php echo esc_html($fmt(abs($statement['opening_balance_minor']))); ?> <?php echo $statement['opening_balance_minor']<0?'بستانکار':'بدهکار'; ?></td></tr>
-  <tr><th>مانده پایان دوره</th><td><strong><?php echo esc_html($fmt(abs($statement['closing_balance_minor']))); ?> <?php echo $statement['closing_balance_minor']<0?'بستانکار':'بدهکار'; ?></strong></td></tr>
+  <tr><th>مانده اول دوره</th><td><?php echo esc_html($fmt(abs($statement['opening_balance_minor']))); ?> <?php echo esc_html($balance_label($statement['opening_balance_minor'],$statement['party']['normal_balance'])); ?></td></tr>
+  <tr><th>مانده پایان دوره</th><td><strong><?php echo esc_html($fmt(abs($statement['closing_balance_minor']))); ?> <?php echo esc_html($balance_label($statement['closing_balance_minor'],$statement['party']['normal_balance'])); ?></strong></td></tr>
   </tbody></table>
   <table class="widefat striped" style="margin-top:12px;max-width:1200px"><thead><tr><th>تاریخ</th><th>شماره سند</th><th>شرح</th><th>بدهکار</th><th>بستانکار</th><th>مانده</th></tr></thead><tbody>
-  <?php foreach($statement['lines'] as $line): ?><tr><td><?php echo esc_html($line['document_date']); ?></td><td><?php echo esc_html($line['document_number']); ?></td><td><?php echo esc_html($line['memo']?:$line['description']); ?></td><td><?php echo esc_html($fmt($line['debit_minor'])); ?></td><td><?php echo esc_html($fmt($line['credit_minor'])); ?></td><td><?php echo esc_html($fmt(abs($line['running_balance_minor'])).' '.($line['running_balance_minor']<0?'بستانکار':'بدهکار')); ?></td></tr><?php endforeach; ?>
+  <?php foreach($statement['lines'] as $line): ?><tr><td><?php echo esc_html($line['document_date']); ?></td><td><?php echo esc_html($line['document_number']); ?></td><td><?php echo esc_html($line['memo']?:$line['description']); ?></td><td><?php echo esc_html($fmt($line['debit_minor'])); ?></td><td><?php echo esc_html($fmt($line['credit_minor'])); ?></td><td><?php echo esc_html($fmt(abs($line['running_balance_minor'])).' '.$balance_label($line['running_balance_minor'],$statement['party']['normal_balance'])); ?></td></tr><?php endforeach; ?>
   <?php if(empty($statement['lines'])): ?><tr><td colspan="6">در بازه انتخاب‌شده گردش ثبت‌شده‌ای وجود ندارد.</td></tr><?php endif; ?></tbody></table>
   <?php endif; ?></div>
   <?php
