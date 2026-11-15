@@ -7,6 +7,8 @@ final class MDA_Admin {
   add_action('admin_post_mda_save_party',array(__CLASS__,'save_party'));
   add_action('admin_post_mda_archive_party',array(__CLASS__,'archive_party'));
   add_action('admin_post_mda_save_account',array(__CLASS__,'save_account'));
+  add_action('admin_post_mda_create_purchase',array(__CLASS__,'create_purchase'));
+  add_action('admin_post_mda_post_purchase',array(__CLASS__,'post_purchase'));
  }
 
  public static function menu(): void {
@@ -14,6 +16,7 @@ final class MDA_Admin {
   add_submenu_page('mda-accounting','طرف‌حساب‌ها','طرف‌حساب‌ها',MDA_Capabilities::MANAGE,'mda-parties',array(__CLASS__,'render_parties'));
   add_submenu_page('mda-accounting','کدینگ حساب‌ها','کدینگ حساب‌ها',MDA_Capabilities::MANAGE,'mda-accounts',array(__CLASS__,'render_accounts'));
   add_submenu_page('mda-accounting','گردش حساب اشخاص','گردش حساب اشخاص',MDA_Capabilities::MANAGE,'mda-party-ledger',array(__CLASS__,'render_party_ledger'));
+  add_submenu_page('mda-accounting','خرید و فاکتور خرید','خرید و انبار',MDA_Capabilities::MANAGE,'mda-purchases',array(__CLASS__,'render_purchases'));
  }
 
  private static function guard(): void {
@@ -54,6 +57,72 @@ final class MDA_Admin {
   try{$id=!empty($_POST['account_id'])?absint($_POST['account_id']):null;MDA_Account_Service::save(wp_unslash($_POST),$id);$url=add_query_arg('mda_notice','account_saved',admin_url('admin.php?page=mda-accounts'));}
   catch(Throwable $e){$url=add_query_arg('mda_error',rawurlencode($e->getMessage()),admin_url('admin.php?page=mda-accounts'));}
   wp_safe_redirect($url);exit;
+ }
+
+
+ public static function create_purchase(): void {
+  self::guard();check_admin_referer('mda_create_purchase');
+  try {
+   $lines=array();$raw=wp_unslash($_POST['lines']??array());
+   foreach((array)$raw as $line){$product=absint($line['product_id']??0);if(!$product)continue;$qty=self::parse_quantity((string)($line['quantity']??''));$unit=filter_var((string)($line['unit_cost_minor']??''),FILTER_VALIDATE_INT);if(false===$unit||$unit<0)throw new InvalidArgumentException('قیمت خرید باید عدد صحیح نامنفی به واحد خرد پول باشد.');
+    $variation=absint($line['variation_id']??0);$name='';$sku=null;if(function_exists('wc_get_product')){$p=wc_get_product($variation?:$product);if($p){$name=$p->get_name();$sku=$p->get_sku();}}
+    $lines[]=array('product_id'=>$product,'variation_id'=>$variation,'product_name_snapshot'=>$name,'sku_snapshot'=>$sku,'quantity_scaled'=>$qty,'quantity_scale'=>1000000,'unit_cost_minor'=>(int)$unit);
+   }
+   $costs=array();$costAmount=filter_var((string)($_POST['ancillary_amount_minor']??'0'),FILTER_VALIDATE_INT);if(false===$costAmount||$costAmount<0)throw new InvalidArgumentException('مبلغ هزینه جانبی معتبر نیست.');
+   if($costAmount>0)$costs[]=array('cost_code'=>sanitize_key(wp_unslash($_POST['ancillary_code']??'other')),'description'=>sanitize_text_field(wp_unslash($_POST['ancillary_description']??'هزینه جانبی خرید')),'amount_minor'=>(int)$costAmount);
+   $id=MDA_Purchase_Service::create_draft(array('supplier_party_id'=>absint($_POST['supplier_party_id']??0),'warehouse_id'=>absint($_POST['warehouse_id']??0),'document_date'=>sanitize_text_field(wp_unslash($_POST['document_date']??'')),'currency_code'=>'IRR','idempotency_key'=>'purchase-draft-'.wp_generate_uuid4(),'lines'=>$lines,'ancillary_costs'=>$costs,'notes'=>sanitize_textarea_field(wp_unslash($_POST['notes']??''))));
+   $url=add_query_arg(array('page'=>'mda-purchases','mda_notice'=>'purchase_draft_created','purchase_id'=>$id),admin_url('admin.php'));
+  }catch(Throwable $e){$url=add_query_arg(array('page'=>'mda-purchases','mda_error'=>rawurlencode($e->getMessage())),admin_url('admin.php'));}
+  wp_safe_redirect($url);exit;
+ }
+
+ public static function post_purchase(): void {
+  self::guard();$id=absint($_POST['purchase_id']??0);check_admin_referer('mda_post_purchase_'.$id);
+  try{$paid=filter_var((string)($_POST['paid_minor']??'0'),FILTER_VALIDATE_INT);if(false===$paid||$paid<0)throw new InvalidArgumentException('مبلغ پرداخت معتبر نیست.');
+   $result=MDA_Purchase_Service::post($id,(int)$paid,absint($_POST['cash_account_id']??0),sanitize_key(wp_unslash($_POST['payment_method']??'cash')),'purchase-payment-'.$id);
+   $url=add_query_arg(array('page'=>'mda-purchases','mda_notice'=>$result['duplicate']?'purchase_already_posted':'purchase_posted'),admin_url('admin.php'));
+  }catch(Throwable $e){$url=add_query_arg(array('page'=>'mda-purchases','mda_error'=>rawurlencode($e->getMessage())),admin_url('admin.php'));}
+  wp_safe_redirect($url);exit;
+ }
+
+ private static function parse_quantity(string $value): int {
+  $value=str_replace(array(',','٫'),array('.','.'),trim($value));
+  if(!preg_match('/^(?:0|[1-9][0-9]*)(?:\\.[0-9]{1,6})?$/',$value))throw new InvalidArgumentException('مقدار کالا باید عدد مثبت با حداکثر ۶ رقم اعشار باشد.');
+  $parts=explode('.',$value);$whole=(int)$parts[0];$fraction=str_pad($parts[1]??'',6,'0');if($whole>intdiv(PHP_INT_MAX,1000000))throw new OverflowException('مقدار کالا بیش از حد مجاز است.');
+  $scaled=$whole*1000000+(int)$fraction;if($scaled<1)throw new InvalidArgumentException('مقدار کالا باید بزرگ‌تر از صفر باشد.');return $scaled;
+ }
+
+ public static function render_purchases(): void {
+  self::guard();if(!MDA_Database::is_available()){echo '<div class="wrap"><div class="notice notice-error"><p>PDO_SQLite فعال نیست.</p></div></div>';return;}
+  $db=MDA_Database::connection();$suppliers=$db->query("SELECT p.id,p.display_name,p.party_code FROM mda_parties p JOIN mda_party_roles r ON r.party_id=p.id AND r.role_key='supplier' WHERE p.is_active=1 AND p.archived_at IS NULL ORDER BY p.display_name")->fetchAll();
+  $warehouses=MDA_Inventory_Service::warehouses();$cash=$db->query("SELECT id,account_code,account_name FROM mda_accounts WHERE account_type='asset' AND is_control=0 AND is_active=1 AND account_code IN ('1110','1120') ORDER BY account_code")->fetchAll();$rows=MDA_Purchase_Service::all(100);$draftId=absint($_GET['purchase_id']??0);$draft=$draftId?MDA_Purchase_Service::get($draftId):null;$fmt=static function($v):string{return number_format((int)$v,0,'.',',');};
+  ?>
+  <div class="wrap" dir="rtl"><h1>خرید و انبار</h1><?php self::notices(); ?>
+  <p>ثبت فاکتور خرید، افزایش موجودی، ثبت قیمت خرید و محاسبه میانگین موزون در زمان قطعی‌سازی انجام می‌شود. مبالغ به واحد خرد پول (ریال) وارد می‌شوند.</p>
+  <div style="background:#fff;padding:18px;max-width:1100px;margin:16px 0"><h2>ثبت پیش‌نویس فاکتور خرید</h2>
+  <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>"><input type="hidden" name="action" value="mda_create_purchase"><?php wp_nonce_field('mda_create_purchase'); ?>
+  <p><label>تأمین‌کننده <select name="supplier_party_id" required><option value="">انتخاب تأمین‌کننده</option><?php foreach($suppliers as $s): ?><option value="<?php echo (int)$s['id']; ?>"><?php echo esc_html($s['party_code'].' — '.$s['display_name']); ?></option><?php endforeach; ?></select></label>
+  <label>انبار مقصد <select name="warehouse_id" required><?php foreach($warehouses as $w): if((int)$w['is_active']): ?><option value="<?php echo (int)$w['id']; ?>"><?php echo esc_html($w['warehouse_name']); ?></option><?php endif; endforeach; ?></select></label>
+  <label>تاریخ <input type="date" name="document_date" value="<?php echo esc_attr(current_time('Y-m-d')); ?>" required></label></p>
+  <table class="widefat striped"><thead><tr><th>شناسه محصول ووکامرس</th><th>شناسه تنوع (اختیاری)</th><th>تعداد</th><th>قیمت واحد خرید (ریال)</th></tr></thead><tbody>
+  <?php for($i=0;$i<5;$i++): ?><tr><td><input type="number" min="1" name="lines[<?php echo $i; ?>][product_id]"></td><td><input type="number" min="0" name="lines[<?php echo $i; ?>][variation_id]" value="0"></td><td><input type="text" placeholder="مثلاً 2.5" name="lines[<?php echo $i; ?>][quantity]"></td><td><input type="number" min="0" step="1" name="lines[<?php echo $i; ?>][unit_cost_minor]"></td></tr><?php endfor; ?>
+  </tbody></table>
+  <p><label>شرح هزینه جانبی <input class="regular-text" name="ancillary_description" value="حمل و بسته‌بندی"></label>
+  <label>نوع هزینه <select name="ancillary_code"><option value="shipping">حمل</option><option value="packaging">بسته‌بندی</option><option value="other">سایر</option></select></label>
+  <label>مبلغ هزینه جانبی (ریال) <input type="number" min="0" step="1" name="ancillary_amount_minor" value="0"></label></p>
+  <p><label>یادداشت<br><textarea class="large-text" rows="2" name="notes"></textarea></label></p><button class="button button-primary">ذخیره پیش‌نویس</button></form></div>
+  <?php if($draft&&'draft'===$draft['document_status']): ?><div style="background:#fff;padding:18px;max-width:1100px;margin:16px 0"><h2>قطعی‌سازی <?php echo esc_html($draft['document_number']); ?></h2>
+  <p>تأمین‌کننده: <?php echo esc_html($draft['supplier_name']); ?> | جمع کالا: <?php echo esc_html($fmt($draft['subtotal_minor'])); ?> | هزینه جانبی: <?php echo esc_html($fmt($draft['ancillary_cost_minor'])); ?> | جمع نهایی: <strong><?php echo esc_html($fmt($draft['total_minor'])); ?> ریال</strong></p>
+  <table class="widefat striped"><thead><tr><th>کالا</th><th>تعداد (مقیاس ۶ رقم اعشار)</th><th>قیمت واحد</th><th>جمع</th></tr></thead><tbody><?php foreach($draft['lines'] as $l): ?><tr><td><?php echo esc_html($l['product_name_snapshot'].' ('.$l['product_id'].')'); ?></td><td><?php echo esc_html(number_format((int)$l['quantity_scaled']/1000000,6)); ?></td><td><?php echo esc_html($fmt($l['unit_cost_minor'])); ?></td><td><?php echo esc_html($fmt($l['line_total_minor'])); ?></td></tr><?php endforeach; ?></tbody></table>
+  <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" style="margin-top:14px"><input type="hidden" name="action" value="mda_post_purchase"><input type="hidden" name="purchase_id" value="<?php echo (int)$draft['id']; ?>"><?php wp_nonce_field('mda_post_purchase_'.(int)$draft['id']); ?>
+  <label>مبلغ پرداخت‌شده (ریال) <input type="number" min="0" max="<?php echo (int)$draft['total_minor']; ?>" name="paid_minor" value="0"></label>
+  <label>صندوق/بانک <select name="cash_account_id"><option value="0">بدون پرداخت (نسیه)</option><?php foreach($cash as $a): ?><option value="<?php echo (int)$a['id']; ?>"><?php echo esc_html($a['account_code'].' — '.$a['account_name']); ?></option><?php endforeach; ?></select></label>
+  <label>روش پرداخت <select name="payment_method"><option value="cash">نقد</option><option value="bank">بانک</option><option value="pos">کارتخوان</option><option value="transfer">انتقال</option></select></label>
+  <p><strong>هشدار:</strong> قطعی‌سازی، موجودی و سند مالی را ثبت می‌کند و قابل ویرایش/حذف نیست.</p><button class="button button-primary" onclick="return confirm('فاکتور قطعی شود و موجودی و سند مالی ثبت شود؟')">قطعی‌سازی فاکتور</button></form></div><?php endif; ?>
+  <h2>فاکتورهای خرید</h2><table class="widefat striped"><thead><tr><th>شماره</th><th>تاریخ</th><th>تأمین‌کننده</th><th>مبلغ کل</th><th>پرداخت</th><th>وضعیت</th><th>عملیات</th></tr></thead><tbody>
+  <?php foreach($rows as $r): ?><tr><td><?php echo esc_html($r['document_number']); ?></td><td><?php echo esc_html($r['document_date']); ?></td><td><?php echo esc_html($r['supplier_name']); ?></td><td><?php echo esc_html($fmt($r['total_minor'])); ?></td><td><?php echo esc_html($fmt($r['paid_minor'])); ?></td><td><?php echo 'posted'===$r['document_status']?'قطعی':'پیش‌نویس'; ?></td><td><?php if('draft'===$r['document_status']): ?><a href="<?php echo esc_url(add_query_arg(array('page'=>'mda-purchases','purchase_id'=>(int)$r['id']),admin_url('admin.php'))); ?>">بررسی و قطعی‌سازی</a><?php else: ?>سند ثبت شد<?php endif; ?></td></tr><?php endforeach; ?>
+  <?php if(!$rows): ?><tr><td colspan="7">فاکتوری ثبت نشده است.</td></tr><?php endif; ?></tbody></table></div>
+  <?php
  }
 
  public static function render_parties(): void {
