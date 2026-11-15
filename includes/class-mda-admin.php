@@ -104,7 +104,7 @@ final class MDA_Admin {
   self::guard();
   if(!MDA_Database::is_available()){echo '<div class="wrap"><div class="notice notice-error"><p>برای مشاهده گردش حساب باید PDO_SQLite فعال باشد.</p></div></div>';return;}
   $parties=MDA_Party_Service::search('',200);$role=sanitize_key(wp_unslash($_GET['role']??'customer'));if(!in_array($role,array('customer','supplier'),true))$role='customer';
-  $party_id=absint($_GET['party_id']??0);$from=sanitize_text_field(wp_unslash($_GET['from']??date('Y-m-01')));$to=sanitize_text_field(wp_unslash($_GET['to']??current_time('Y-m-d')));$statement=null;$error='';
+  $party_id=absint($_GET['party_id']??0);$from=sanitize_text_field(wp_unslash($_GET['from']??current_time('Y-m-01')));$to=sanitize_text_field(wp_unslash($_GET['to']??current_time('Y-m-d')));$statement=null;$error='';
   if($party_id){try{$statement=MDA_Party_Ledger_Service::statement($party_id,$role,$from,$to);}catch(Throwable $e){$error=$e->getMessage();}}
   $fmt=static function($amount): string {return number_format((int)$amount,0,'.',',');};$balance_label=static function($amount,$normal): string {$is_normal=(int)$amount>=0;$is_debit=('debit'===$normal)===$is_normal;return $is_debit?'بدهکار':'بستانکار';};
   ?>
@@ -126,6 +126,12 @@ final class MDA_Admin {
   <table class="widefat striped" style="margin-top:12px;max-width:1200px"><thead><tr><th>تاریخ</th><th>شماره سند</th><th>شرح</th><th>بدهکار</th><th>بستانکار</th><th>مانده</th></tr></thead><tbody>
   <?php foreach($statement['lines'] as $line): ?><tr><td><?php echo esc_html($line['document_date']); ?></td><td><?php echo esc_html($line['document_number']); ?></td><td><?php echo esc_html($line['memo']?:$line['description']); ?></td><td><?php echo esc_html($fmt($line['debit_minor'])); ?></td><td><?php echo esc_html($fmt($line['credit_minor'])); ?></td><td><?php echo esc_html($fmt(abs($line['running_balance_minor'])).' '.$balance_label($line['running_balance_minor'],$statement['party']['normal_balance'])); ?></td></tr><?php endforeach; ?>
   <?php if(empty($statement['lines'])): ?><tr><td colspan="6">در بازه انتخاب‌شده گردش ثبت‌شده‌ای وجود ندارد.</td></tr><?php endif; ?></tbody></table>
+  <?php endif; ?>
+  <?php if(!$statement): $balances=MDA_Party_Ledger_Service::balances(200); ?>
+  <h2>مانده تفصیلی ثبت‌شده</h2><table class="widefat striped" style="max-width:1100px"><thead><tr><th>کد</th><th>طرف‌حساب</th><th>نقش</th><th>حساب کنترلی</th><th>بدهکار</th><th>بستانکار</th><th>مانده</th></tr></thead><tbody>
+  <?php foreach($balances as $b): $is_debit=('debit'===$b['normal_balance'])===((int)$b['balance_minor']>=0); ?>
+  <tr><td><?php echo esc_html($b['party_code']); ?></td><td><?php echo esc_html($b['display_name']); ?></td><td><?php echo 'customer'===$b['role_key']?'مشتری':'تأمین‌کننده'; ?></td><td><?php echo esc_html($b['account_code'].' — '.$b['account_name']); ?></td><td><?php echo esc_html($fmt($b['debit_total'])); ?></td><td><?php echo esc_html($fmt($b['credit_total'])); ?></td><td><?php echo esc_html($fmt(abs($b['balance_minor'])).' '.($is_debit?'بدهکار':'بستانکار')); ?></td></tr>
+  <?php endforeach; if(empty($balances)): ?><tr><td colspan="7">هنوز گردش تفصیلی قطعی ثبت نشده است.</td></tr><?php endif; ?></tbody></table>
   <?php endif; ?></div>
   <?php
  }
