@@ -24,4 +24,4 @@ jobs:
       - name: PHP syntax check
         run: find . -name "*.php" -not -path "./vendor/*" -print0 | xargs -0 -n1 php -l
       - name: SQLite schema smoke test
-        run: php tests/sqlite-schema-smoke.php
+        run: php tests/sqlite-schema-smoke.php\n      - name: Purchase workflow integration smoke test\n        run: php tests/purchase-workflow-smoke.php
