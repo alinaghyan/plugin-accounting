@@ -36,16 +36,18 @@ final class MDA_Inventory_Service {
   if(in_array($type,array('opening','purchase_receipt','customer_return','adjustment_in','transfer_in'),true)&&$quantity<0) throw new InvalidArgumentException('مقدار ورود باید مثبت باشد.');
   if(in_array($type,array('sale_issue','supplier_return','adjustment_out','transfer_out','damage_out'),true)&&$quantity>0) throw new InvalidArgumentException('مقدار خروج باید منفی باشد.');
   $now=isset($movement['occurred_at'])?(string)$movement['occurred_at']:gmdate('Y-m-d H:i:s');
-  return MDA_Database::transaction(static function(PDO $db) use($product,$variation,$warehouse,$quantity,$scale,$type,$key,$sourceType,$sourceId,$cost,$now): array {
-   $existing=$db->prepare('SELECT id,product_id,variation_id,warehouse_id,quantity_scaled FROM mda_inventory_movements WHERE idempotency_key=:key LIMIT 1');
+  $currency=isset($movement['currency_code'])?strtoupper((string)$movement['currency_code']):'IRR';
+  $payloadHash=hash('sha256',wp_json_encode(array($product,$variation,$warehouse,$quantity,$scale,$type,$sourceType,$sourceId,$cost,$currency,$now)));
+  return MDA_Database::transaction(static function(PDO $db) use($product,$variation,$warehouse,$quantity,$scale,$type,$key,$sourceType,$sourceId,$cost,$currency,$now,$payloadHash): array {
+   $existing=$db->prepare('SELECT id,product_id,variation_id,warehouse_id,quantity_scaled,quantity_scale,movement_type,unit_cost_minor,currency_code,source_type,source_id,occurred_at FROM mda_inventory_movements WHERE idempotency_key=:key LIMIT 1');
    $existing->execute(array(':key'=>$key));$row=$existing->fetch();
-   if($row){if((int)$row['product_id']!==$product||(int)$row['variation_id']!==$variation||(int)$row['warehouse_id']!==$warehouse||(int)$row['quantity_scaled']!==$quantity)throw new RuntimeException('کلید یکتا قبلاً برای گردش متفاوتی استفاده شده است.');return array('movement_id'=>(int)$row['id'],'duplicate'=>true);}
+   if($row){if((int)$row['product_id']!==$product||(int)$row['variation_id']!==$variation||(int)$row['warehouse_id']!==$warehouse||(int)$row['quantity_scaled']!==$quantity||(int)$row['quantity_scale']!==$scale||$row['movement_type']!==$type||$row['unit_cost_minor']!==$cost||$row['currency_code']!==$currency||$row['source_type']!==$sourceType||$row['source_id']!==$sourceId||$row['occurred_at']!==$now)throw new RuntimeException('کلید یکتا قبلاً برای گردش متفاوتی استفاده شده است.');return array('movement_id'=>(int)$row['id'],'duplicate'=>true);}
    $wh=$db->prepare('SELECT 1 FROM mda_warehouses WHERE id=:id AND is_active=1');$wh->execute(array(':id'=>$warehouse));if(!$wh->fetchColumn())throw new InvalidArgumentException('انبار وجود ندارد یا غیرفعال است.');
    $balance=$db->prepare('SELECT COALESCE(SUM(quantity_scaled),0) FROM mda_inventory_movements WHERE product_id=:product AND variation_id=:variation AND warehouse_id=:warehouse AND quantity_scale=:scale');
    $balance->execute(array(':product'=>$product,':variation'=>$variation,':warehouse'=>$warehouse,':scale'=>$scale));$current=(int)$balance->fetchColumn();
    if($quantity<0&&$current < -$quantity)throw new RuntimeException('موجودی انبار برای این خروج کافی نیست.');
    $insert=$db->prepare('INSERT INTO mda_inventory_movements (product_id,variation_id,warehouse_id,movement_type,quantity_scaled,quantity_scale,unit_cost_minor,currency_code,source_type,source_id,idempotency_key,occurred_at,created_by) VALUES (:product,:variation,:warehouse,:type,:quantity,:scale,:cost,:currency,:source_type,:source_id,:key,:occurred,:user)');
-   $insert->execute(array(':product'=>$product,':variation'=>$variation,':warehouse'=>$warehouse,':type'=>$type,':quantity'=>$quantity,':scale'=>$scale,':cost'=>$cost,':currency'=>isset($movement['currency_code'])?strtoupper((string)$movement['currency_code']):'IRR',':source_type'=>$sourceType,':source_id'=>$sourceId,':key'=>$key,':occurred'=>$now,':user'=>get_current_user_id()?:null));
+   $insert->execute(array(':product'=>$product,':variation'=>$variation,':warehouse'=>$warehouse,':type'=>$type,':quantity'=>$quantity,':scale'=>$scale,':cost'=>$cost,':currency'=>$currency,':source_type'=>$sourceType,':source_id'=>$sourceId,':key'=>$key,':occurred'=>$now,':user'=>get_current_user_id()?:null));
    return array('movement_id'=>(int)$db->lastInsertId(),'duplicate'=>false,'balance_scaled'=>$current+$quantity);
   });
  }
