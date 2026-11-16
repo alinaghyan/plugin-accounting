@@ -35,7 +35,7 @@ final class MDA_Reconciliation_Service {
   $nextPage=($totalPages>0&&$page<$totalPages)?$page+1:1;$status=$nextPage>1?'partial':($counts['failed']>0||$counts['skipped']>0?'partial':'completed');
   $db->prepare('INSERT OR REPLACE INTO mda_settings (setting_key,setting_value,updated_at) VALUES (:key,:value,:now)')->execute(array(':key'=>$pageKey,':value'=>(string)$nextPage,':now'=>gmdate('Y-m-d H:i:s')));
   $finished=gmdate('Y-m-d H:i:s');$db->prepare('INSERT INTO mda_reconciliation_runs (started_at,finished_at,window_start,page_number,total_pages,scanned_count,already_posted_count,queued_count,pending_count,failed_count,skipped_count,errors_json,status,created_at) VALUES (:started,:finished,:window,:page,:pages,:scanned,:posted,:queued,:pending,:failed,:skipped,:errors,:status,:created)')->execute(array(':started'=>$started,':finished'=>$finished,':window'=>$windowStart,':page'=>$page,':pages'=>$totalPages,':scanned'=>$counts['scanned'],':posted'=>$counts['already_posted'],':queued'=>$counts['queued'],':pending'=>$counts['pending'],':failed'=>$counts['failed'],':skipped'=>$counts['skipped'],':errors'=>wp_json_encode($errors),':status'=>$status,':created'=>$finished));
-  if($nextPage>1&&!wp_next_scheduled('mda_reconcile_woocommerce_batch'))wp_schedule_single_event(time()+30,'mda_reconcile_woocommerce_batch');
+  if($nextPage>1&&!wp_next_scheduled('mda_reconcile_woocommerce_continue'))wp_schedule_single_event(time()+30,'mda_reconcile_woocommerce_continue');
   return array_merge($counts,array('page'=>$page,'next_page'=>$nextPage,'total_pages'=>$totalPages,'window_start'=>$windowStart,'status'=>$status,'errors'=>$errors));
  }
  public static function runs(int $limit=30):array {
