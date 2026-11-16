@@ -1,0 +1,46 @@
+<?php
+defined( 'ABSPATH' ) || exit;
+
+/** Immutable general cash/bank receipts, payments, transfers and operating expenses. */
+final class MDA_Cash_Service {
+ public static function cash_accounts():array {
+  return MDA_Database::connection()->query("SELECT id,account_code,account_name FROM mda_accounts WHERE account_code GLOB '11*' AND account_type='asset' AND is_control=0 AND allow_manual_entry=1 AND is_active=1 AND archived_at IS NULL ORDER BY account_code")->fetchAll();
+ }
+ public static function contra_accounts(string $type):array {
+  if(!in_array($type,array('income','expense'),true))throw new InvalidArgumentException('نوع حساب مقابل معتبر نیست.');
+  $q=MDA_Database::connection()->prepare("SELECT id,account_code,account_name FROM mda_accounts WHERE account_type=:type AND is_control=0 AND allow_manual_entry=1 AND is_active=1 AND archived_at IS NULL AND account_code NOT IN ('5100','4110') ORDER BY account_code");$q->execute(array(':type'=>$type));return$q->fetchAll();
+ }
+ public static function record(string $type,int $amount,int $cashAccountId,int $contraAccountId,int $destinationAccountId,string $currency,string $method,string $key,string $date,string $description,string $reference=''):array {
+  $currency=strtoupper($currency);$description=trim($description);$reference=trim($reference);
+  if(!in_array($type,array('receipt','payment','transfer'),true)||$amount<1||$cashAccountId<1||!in_array($currency,array('IRR','IRT'),true)||!in_array($method,array('cash','bank','pos','transfer','cheque'),true)||strlen($key)<12||strlen($key)>191||$description===''||strlen($description)>500||strlen($reference)>120)throw new InvalidArgumentException('اطلاعات تراکنش صندوق/بانک معتبر نیست.');
+  if($type==='transfer'){if($destinationAccountId<1||$destinationAccountId===$cashAccountId||$contraAccountId!==0||$method!=='transfer')throw new InvalidArgumentException('برای انتقال، دو حساب نقدی متفاوت و روش انتقال انتخاب کنید.');}
+  else{if($contraAccountId<1||$destinationAccountId!==0)throw new InvalidArgumentException('حساب مقابل تراکنش انتخاب نشده است.');}
+  $parsed=DateTimeImmutable::createFromFormat('!Y-m-d',$date);if(!$parsed||$parsed->format('Y-m-d')!==$date)throw new InvalidArgumentException('تاریخ تراکنش معتبر نیست.');
+  $hash=hash('sha256',wp_json_encode(array($type,$amount,$cashAccountId,$contraAccountId,$destinationAccountId,$currency,$method,$date,$description,$reference)));$now=gmdate('Y-m-d H:i:s');
+  return MDA_Database::transaction(static function(PDO $db)use($type,$amount,$cashAccountId,$contraAccountId,$destinationAccountId,$currency,$method,$key,$date,$description,$reference,$hash,$now):array {
+   $old=$db->prepare('SELECT id,payload_hash,accounting_document_id FROM mda_cash_transactions WHERE idempotency_key=:key');$old->execute(array(':key'=>$key));$existing=$old->fetch();if($existing){if(!hash_equals((string)$existing['payload_hash'],$hash))throw new RuntimeException('کلید یکتا برای تراکنش متفاوتی استفاده شده است.');return array('transaction_id'=>(int)$existing['id'],'document_id'=>(int)$existing['accounting_document_id'],'duplicate'=>true);}
+   $closed=$db->prepare("SELECT 1 FROM mda_financial_periods WHERE status='closed' AND :date BETWEEN starts_on AND ends_on LIMIT 1");$closed->execute(array(':date'=>$date));if($closed->fetchColumn())throw new RuntimeException('ثبت تراکنش در دوره مالی بسته‌شده مجاز نیست.');
+   $cash=$db->prepare("SELECT id FROM mda_accounts WHERE id=:id AND account_code GLOB '11*' AND account_type='asset' AND is_control=0 AND allow_manual_entry=1 AND is_active=1 AND archived_at IS NULL");$cash->execute(array(':id'=>$cashAccountId));if(!$cash->fetchColumn())throw new InvalidArgumentException('حساب صندوق/بانک مبدأ یا مقصد معتبر و قابل ثبت نیست.');
+   if($type==='transfer'){$cash->execute(array(':id'=>$destinationAccountId));if(!$cash->fetchColumn())throw new InvalidArgumentException('حساب مقصد انتقال معتبر نیست.');}
+   else{$expected=$type==='receipt'?'income':'expense';$contra=$db->prepare("SELECT id FROM mda_accounts WHERE id=:id AND account_type=:type AND is_control=0 AND allow_manual_entry=1 AND is_active=1 AND archived_at IS NULL AND account_code NOT IN ('5100','4110')");$contra->execute(array(':id'=>$contraAccountId,':type'=>$expected));if(!$contra->fetchColumn())throw new InvalidArgumentException('حساب درآمد/هزینه انتخاب‌شده برای این نوع تراکنش معتبر نیست.');}
+   $docType=$type==='receipt'?'cash_receipt':($type==='payment'?'cash_payment':'cash_transfer');$number='MDA-CASH-'.gmdate('Ymd').'-'.strtoupper(bin2hex(random_bytes(4)));
+   $doc=$db->prepare('INSERT INTO mda_documents (document_number,document_type,document_status,source_type,source_id,idempotency_key,payload_hash,currency_code,amount_scale,document_date,description,created_by,created_at,posted_at) VALUES (:number,:type,\'posted\',\'cashbook\',:source,:key,:hash,:currency,1,:date,:description,:user,:now,:now)');
+   $doc->execute(array(':number'=>$number,':type'=>$docType,':source'=>$key,':key'=>'cash-journal-'.$key,':hash'=>$hash,':currency'=>$currency,':date'=>$date,':description'=>$description,':user'=>get_current_user_id()?:null,':now'=>$now));$journalId=(int)$db->lastInsertId();
+   $lines=array();if($type==='receipt'){$lines[]=array($cashAccountId,0,$amount,'دریافت وجه');$lines[]=array($contraAccountId,$amount,0,'درآمد دریافت‌شده');}
+   elseif($type==='payment'){$lines[]=array($contraAccountId,$amount,0,'هزینه پرداخت‌شده');$lines[]=array($cashAccountId,0,$amount,'پرداخت وجه');}
+   else{$lines[]=array($destinationAccountId,$amount,0,'ورود وجه به حساب مقصد');$lines[]=array($cashAccountId,0,$amount,'خروج وجه از حساب مبدأ');}
+   $entry=$db->prepare('INSERT INTO mda_journal_entries (document_id,entry_number,account_id,party_id,debit_minor,credit_minor,memo,created_at) VALUES (:doc,:num,:account,NULL,:debit,:credit,:memo,:now)');
+   foreach($lines as $i=>$line)$entry->execute(array(':doc'=>$journalId,':num'=>$i+1,':account'=>$line[0],':debit'=>$line[1],':credit'=>$line[2],':memo'=>$line[3],':now'=>$now));
+   $insert=$db->prepare('INSERT INTO mda_cash_transactions (transaction_type,cash_account_id,contra_account_id,destination_cash_account_id,amount_minor,currency_code,payment_method,transaction_date,reference_number,description,idempotency_key,payload_hash,accounting_document_id,created_by,created_at) VALUES (:type,:cash,:contra,:destination,:amount,:currency,:method,:date,:reference,:description,:key,:hash,:journal,:user,:now)');
+   $insert->execute(array(':type'=>$type,':cash'=>$cashAccountId,':contra'=>$type==='transfer'?null:$contraAccountId,':destination'=>$type==='transfer'?$destinationAccountId:null,':amount'=>$amount,':currency'=>$currency,':method'=>$method,':date'=>$date,':reference'=>$reference?:null,':description'=>$description,':key'=>$key,':hash'=>$hash,':journal'=>$journalId,':user'=>get_current_user_id()?:null,':now'=>$now));$id=(int)$db->lastInsertId();
+   $db->prepare("INSERT INTO mda_audit_logs (user_id,action,object_type,object_id,after_json,created_at) VALUES (:user,'cash_transaction_posted','cash_transaction',:id,:json,:now)")->execute(array(':user'=>get_current_user_id()?:null,':id'=>(string)$id,':json'=>wp_json_encode(array('type'=>$type,'amount_minor'=>$amount,'currency'=>$currency,'cash_account_id'=>$cashAccountId,'contra_account_id'=>$contraAccountId,'destination_account_id'=>$destinationAccountId)),':now'=>$now));
+   return array('transaction_id'=>$id,'document_id'=>$journalId,'document_number'=>$number,'duplicate'=>false);
+  });
+ }
+ public static function balances():array {
+  return MDA_Database::connection()->query("SELECT a.id,a.account_code,a.account_name,d.currency_code,SUM(j.debit_minor)-SUM(j.credit_minor) balance_minor FROM mda_accounts a JOIN mda_journal_entries j ON j.account_id=a.id JOIN mda_documents d ON d.id=j.document_id WHERE a.account_code GLOB '11*' AND a.account_type='asset' AND a.is_control=0 AND a.allow_manual_entry=1 AND a.is_active=1 AND d.document_status='posted' GROUP BY a.id,d.currency_code ORDER BY a.account_code,d.currency_code")->fetchAll();
+ }
+ public static function transactions(int $limit=100):array {
+  return MDA_Database::connection()->query('SELECT t.*,a.account_code,a.account_name,d.document_number FROM mda_cash_transactions t JOIN mda_accounts a ON a.id=t.cash_account_id JOIN mda_documents d ON d.id=t.accounting_document_id ORDER BY t.id DESC LIMIT '.max(1,min(500,$limit)))->fetchAll();
+ }
+}
