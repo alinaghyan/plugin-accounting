@@ -20,7 +20,7 @@ final class MDA_Sales_Service {
    $wh=$db->prepare('SELECT id FROM mda_warehouses WHERE id=:id AND is_active=1');$wh->execute(array(':id'=>$warehouse));if(!$wh->fetchColumn())throw new RuntimeException('انبار فعال برای ثبت فروش تنظیم نشده است.');
    $partyId=self::customer_party($db,(array)($payload['customer']??array()),$orderId);
    $productTotal=0;$shipping=(int)($payload['shipping_minor']??0);$fees=(int)($payload['fees_minor']??0);$tax=(int)($payload['tax_minor']??0);$total=(int)($payload['total_minor']??0);
-   if(min($shipping,$fees,$tax,$total)<0)throw new InvalidArgumentException('مبالغ سفارش نمی‌توانند منفی باشند.');
+   if($total<1||min($shipping,$fees,$tax)<0)throw new InvalidArgumentException('مبالغ سفارش نمی‌توانند منفی باشند.');
    $costTotal=0;$clean=array();
    foreach($items as $item){
     $product=(int)($item['product_id']??0);$variation=(int)($item['variation_id']??0);$qty=$item['quantity_scaled']??null;$scale=(int)($item['quantity_scale']??1000000);$revenue=(int)($item['revenue_minor']??-1);
