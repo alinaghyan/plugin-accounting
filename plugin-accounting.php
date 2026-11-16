@@ -2,7 +2,7 @@
 /**
  * Plugin Name: MaliDev Accounting & ERP
  * Description: هسته حسابداری و مدیریت عملیات فروشگاه ووکامرس با پایگاه داده اختصاصی SQLite.
- * Version: 0.18.0
+ * Version: 0.19.0
  * Requires at least: 6.3
  * Requires PHP: 8.1
  * Requires Plugins: woocommerce
@@ -14,7 +14,7 @@
  * Domain Path: /languages
  */
 defined( 'ABSPATH' ) || exit;
-define( 'MDA_VERSION', '0.18.0' );
+define( 'MDA_VERSION', '0.19.0' );
 define( 'MDA_FILE', __FILE__ );
 define( 'MDA_PATH', plugin_dir_path( __FILE__ ) );
 define( 'MDA_URL', plugin_dir_url( __FILE__ ) );
@@ -45,6 +45,9 @@ require_once MDA_PATH . 'includes/class-mda-journal-service.php';
 require_once MDA_PATH . 'includes/class-mda-ledger-report-service.php';
 require_once MDA_PATH . 'includes/class-mda-inventory-adjustment-service.php';
 require_once MDA_PATH . 'includes/class-mda-backup-service.php';
+require_once MDA_PATH . 'includes/class-mda-price-service.php';
+require_once MDA_PATH . 'includes/class-mda-price-frontend.php';
+require_once MDA_PATH . 'includes/class-mda-integrations.php';
 require_once MDA_PATH . 'includes/class-mda-purchase-service.php';
 require_once MDA_PATH . 'includes/class-mda-purchase-settlement-service.php';
 require_once MDA_PATH . 'includes/class-mda-purchase-return-service.php';
@@ -68,6 +71,7 @@ require_once MDA_PATH . 'includes/class-mda-phone-sales-admin.php';
 require_once MDA_PATH . 'includes/class-mda-admin-shell.php';
 require_once MDA_PATH . 'includes/class-mda-admin.php';
 require_once MDA_PATH . 'includes/class-mda-admin-pages.php';
+require_once MDA_PATH . 'includes/class-mda-price-admin.php';
 require_once MDA_PATH . 'includes/class-mda-plugin.php';
 register_activation_hook( __FILE__, array( 'MDA_Installer', 'activate' ) );
 register_deactivation_hook( __FILE__, array( 'MDA_Installer', 'deactivate' ) );
@@ -81,6 +85,9 @@ add_action('plugins_loaded',static function(): void {
  MDA_Installer::maybe_migrate();
  MDA_Admin_Shell::init();
  MDA_Admin_Pages::init();
+ MDA_Price_Admin::init();
+ MDA_Price_Frontend::init();
+ MDA_Integrations::init();
  MDA_Backup_Service::init();
  MDA_Plugin::instance()->init();
  MDA_Cheque_Admin::init();

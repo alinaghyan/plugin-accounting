@@ -329,9 +329,13 @@ final class MDA_Admin_Pages {
 			case 'ap':
 				$aging = MDA_Ledger_Report_Service::aging( 'ar' === $tab ? 'customer' : 'supplier', $to );
 				$export( $tab );
-				echo '<table class="widefat striped"><thead><tr><th>طرف‌حساب</th><th>تلفن</th><th>۰ تا ۳۰ روز</th><th>۳۱ تا ۶۰</th><th>۶۱ تا ۹۰</th><th>بیش از ۹۰</th><th>جمع</th><th>بستانکاری/پیش‌پرداخت</th></tr></thead><tbody>';
+				echo '<table class="widefat striped"><thead><tr><th>طرف‌حساب</th><th>تلفن</th><th>۰ تا ۳۰ روز</th><th>۳۱ تا ۶۰</th><th>۶۱ تا ۹۰</th><th>بیش از ۹۰</th><th>جمع</th><th>بستانکاری/پیش‌پرداخت</th>' . ( 'ar' === $tab && MDA_Integrations::sms_available() ? '<th>یادآوری</th>' : '' ) . '</tr></thead><tbody>';
 				foreach ( $aging['rows'] as $r ) {
-					echo '<tr><td>' . esc_html( $r['name'] ) . '</td><td dir="ltr">' . esc_html( (string) $r['phone'] ) . '</td><td>' . esc_html( self::money( $r['b0'] ) ) . '</td><td>' . esc_html( self::money( $r['b30'] ) ) . '</td><td>' . esc_html( self::money( $r['b60'] ) ) . '</td><td>' . esc_html( self::money( $r['b90'] ) ) . '</td><td><strong>' . esc_html( self::money( $r['total'] ) ) . '</strong></td><td>' . esc_html( self::money( $r['credit'] ) ) . '</td></tr>';
+					echo '<tr><td>' . esc_html( $r['name'] ) . '</td><td dir="ltr">' . esc_html( (string) $r['phone'] ) . '</td><td>' . esc_html( self::money( $r['b0'] ) ) . '</td><td>' . esc_html( self::money( $r['b30'] ) ) . '</td><td>' . esc_html( self::money( $r['b60'] ) ) . '</td><td>' . esc_html( self::money( $r['b90'] ) ) . '</td><td><strong>' . esc_html( self::money( $r['total'] ) ) . '</strong></td><td>' . esc_html( self::money( $r['credit'] ) ) . '</td>';
+					if ( 'ar' === $tab && MDA_Integrations::sms_available() ) {
+						echo '<td>' . ( $r['total'] > 0 && $r['phone'] ? '<a class="button button-small" href="' . esc_url( MDA_Integrations::reminder_url( (int) $r['party_id'] ) ) . '" onclick="return confirm(\'پیامک یادآوری بدهی ارسال شود؟\')"><span class="dashicons dashicons-email-alt"></span> پیامک</a>' : '' ) . '</td>';
+					}
+					echo '</tr>';
 				}
 				echo '</tbody><tfoot><tr><th colspan="2">جمع</th><th>' . esc_html( self::money( $aging['totals']['b0'] ) ) . '</th><th>' . esc_html( self::money( $aging['totals']['b30'] ) ) . '</th><th>' . esc_html( self::money( $aging['totals']['b60'] ) ) . '</th><th>' . esc_html( self::money( $aging['totals']['b90'] ) ) . '</th><th>' . esc_html( self::money( $aging['totals']['total'] ) ) . '</th><th></th></tr></tfoot></table>';
 				break;
@@ -482,6 +486,7 @@ final class MDA_Admin_Pages {
 		echo '<tr><th>واحد پول</th><td>' . esc_html( MDA_Settings::currency_label() ) . ' <span class="description">(از تنظیمات ووکامرس)</span></td></tr>';
 		echo '<tr><th>پشتیبان خودکار</th><td><label><input type="checkbox" name="backup_enabled" value="1"' . checked( $s['backup_enabled'], 1, false ) . '> هر شب</label> — نگه‌داری <input type="number" name="backup_keep" min="3" max="90" value="' . (int) $s['backup_keep'] . '" style="width:70px"> نسخه آخر</td></tr>';
 		echo '<tr><th>زمان تأمین پیش‌فرض کالای سفارشی</th><td><input type="number" name="default_lead_time" min="0" max="365" value="' . (int) $s['default_lead_time'] . '" style="width:70px"> روز کاری</td></tr>';
+		echo '<tr><th>یادآوری پیامکی سررسید چک</th><td>' . ( MDA_Integrations::sms_available() ? '' : '<span class="mda-muted">(نیازمند افزونه «پیامک ورود، رهگیری پست، ووکامرس») </span>' ) . 'چک‌هایی که تا <input type="number" name="cheque_reminder_days" min="0" max="30" value="' . (int) $s['cheque_reminder_days'] . '" style="width:70px"> روز آینده سررسید دارند، هر صبح برای شماره‌های مدیر ارسال شود (۰ = خاموش).</td></tr>';
 		echo '<tr><th>نام فروشنده</th><td><input name="seller_name" class="regular-text" value="' . esc_attr( $s['seller_name'] ) . '"></td></tr>';
 		echo '<tr><th>شناسه ملی / کد ملی</th><td><input name="seller_national_id" dir="ltr" value="' . esc_attr( $s['seller_national_id'] ) . '"></td></tr>';
 		echo '<tr><th>کد اقتصادی</th><td><input name="seller_economic_code" dir="ltr" value="' . esc_attr( $s['seller_economic_code'] ) . '"></td></tr>';

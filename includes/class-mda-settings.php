@@ -24,6 +24,7 @@ final class MDA_Settings {
 			'seller_postal_code'    => '',
 			'moodian_memory_id'     => '',
 			'default_lead_time'     => 3,
+			'cheque_reminder_days'  => 3,
 		);
 	}
 
@@ -54,6 +55,7 @@ final class MDA_Settings {
 		}
 		$clean['backup_keep']       = max( 3, min( 90, (int) ( $input['backup_keep'] ?? 14 ) ) );
 		$clean['default_lead_time'] = max( 0, min( 365, (int) ( $input['default_lead_time'] ?? 3 ) ) );
+		$clean['cheque_reminder_days'] = max( 0, min( 30, (int) ( $input['cheque_reminder_days'] ?? 3 ) ) );
 		foreach ( array( 'seller_name', 'moodian_memory_id' ) as $text ) {
 			$clean[ $text ] = sanitize_text_field( (string) ( $input[ $text ] ?? '' ) );
 		}

@@ -2,7 +2,7 @@
 defined( 'ABSPATH' ) || exit;
 
 final class MDA_Installer {
- public const SCHEMA_VERSION=18;
+ public const SCHEMA_VERSION=19;
  public static function activate(): void {
   if(!MDA_Database::is_available()) wp_die(esc_html__('برای نصب MaliDev Accounting باید افزونه PHP با نام PDO_SQLite فعال باشد.','malidev-accounting'),esc_html__('پیش‌نیاز نصب موجود نیست','malidev-accounting'),array('back_link'=>true));
   try { self::migrate(); MDA_Capabilities::add(); MDA_Capabilities::register_roles(); }
@@ -19,7 +19,7 @@ final class MDA_Installer {
   try{self::migrate();}catch(Throwable $exception){error_log('MaliDev Accounting migration error: '.$exception->getMessage());}
  }
  public static function deactivate(): void {
-  foreach(array('mda_process_outbox','mda_process_outbox_batch','mda_reconcile_woocommerce_batch','mda_reconcile_woocommerce_continue','mda_woocommerce_stock_sync_continue','mda_daily_backup','mda_core_license_check') as $hook)wp_clear_scheduled_hook($hook);
+  foreach(array('mda_process_outbox','mda_process_outbox_batch','mda_reconcile_woocommerce_batch','mda_reconcile_woocommerce_continue','mda_woocommerce_stock_sync_continue','mda_daily_backup','mda_cheque_reminders') as $hook)wp_clear_scheduled_hook($hook);
  }
  public static function migrate(): void {
   $pdo=MDA_Database::connection();
@@ -44,7 +44,8 @@ final class MDA_Installer {
    15=>array('015-cheque-management.sql','فایل مهاجرت دفتر چک پیدا نشد.'),
    16=>array('016-gateway-settlements.sql','فایل مهاجرت تسویه درگاه‌ها پیدا نشد.'),
    17=>array('017-ledger-integrity-and-supply-modes.sql','فایل مهاجرت قفل دفتر کل و کالای سفارشی پیدا نشد.'),
-   18=>array('018-chart-completion-backups-adjustments.sql','فایل مهاجرت تکمیل کدینگ و پشتیبان پیدا نشد.')
+   18=>array('018-chart-completion-backups-adjustments.sql','فایل مهاجرت تکمیل کدینگ و پشتیبان پیدا نشد.'),
+   19=>array('019-price-history.sql','فایل مهاجرت تاریخچه قیمت پیدا نشد.')
   );
   foreach($migrations as $target=>$migration){
    if($version >= $target) continue;

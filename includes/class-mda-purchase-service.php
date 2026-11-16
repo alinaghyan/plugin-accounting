@@ -46,6 +46,14 @@ final class MDA_Purchase_Service {
  }
 
  public static function post(int $purchaseId,int $paidMinor=0,int $cashAccountId=0,string $paymentMethod='cash',?string $paymentKey=null): array {
+  $result=self::post_in_transaction($purchaseId,$paidMinor,$cashAccountId,$paymentMethod,$paymentKey);
+  // Outside the SQLite transaction: other modules (e.g. last purchase price on products) react to a committed purchase.
+  if(empty($result['duplicate'])&&function_exists('do_action')){
+   try{$lines=MDA_Database::connection()->prepare('SELECT product_id,variation_id,unit_cost_minor FROM mda_purchase_lines WHERE purchase_id=:id');$lines->execute(array(':id'=>$purchaseId));do_action('mda_purchase_posted',$purchaseId,$lines->fetchAll());}catch(Throwable $e){error_log('MaliDev Accounting purchase hook: '.$e->getMessage());}
+  }
+  return $result;
+ }
+ private static function post_in_transaction(int $purchaseId,int $paidMinor,int $cashAccountId,string $paymentMethod,?string $paymentKey): array {
   if($purchaseId<1||$paidMinor<0)throw new InvalidArgumentException('مبلغ پرداخت یا شناسه فاکتور معتبر نیست.');
   if(!in_array($paymentMethod,array('cash','bank','pos','transfer'),true))throw new InvalidArgumentException('روش پرداخت معتبر نیست.');
   $paymentKey=$paymentKey?:'purchase-payment-'.$purchaseId;

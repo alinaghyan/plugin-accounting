@@ -3,7 +3,7 @@ body.mda-admin{background:var(--mda-bg);color:var(--mda-ink);font-family:var(--w
 body.mda-admin #wpcontent{padding-right:20px}
 body.mda-admin #wpbody-content{padding-bottom:40px}
 body.mda-admin #wpbody-content>.wrap{margin:24px 8px 30px 20px;max-width:1600px;animation:mda-rise .45s ease both}
-body.mda-admin #wpbody-content>.wrap>h1{font-size:25px;font-weight:800;letter-spacing:-.5px;color:var(--mda-ink);padding:8px 0 3px}
+
 body.mda-admin #wpbody-content>.wrap>p{color:var(--mda-muted);font-size:13px;line-height:2}
 body.mda-admin .widefat,body.mda-admin table.widefat{border:1px solid var(--mda-border);border-radius:14px;overflow:hidden;border-spacing:0;background:#fff;box-shadow:0 5px 20px rgba(26,39,74,.035)}
 body.mda-admin .widefat thead th{background:#f7f8fc;color:#66738a;font-weight:700;font-size:12px;padding:14px 13px;border-bottom:1px solid var(--mda-border)}
@@ -101,3 +101,34 @@ body.mda-admin .mda-count{display:inline-block;min-width:1ch}
 body.mda-admin tr.mda-flash td{animation:mda-row-flash 1.6s ease}
 @keyframes mda-row-flash{0%{background:var(--mda-soft)}100%{background:transparent}}
 @media (prefers-reduced-motion:reduce){body.mda-admin *,body.mda-admin *::before,body.mda-admin *::after{animation:none!important;transition:none!important}}
+
+/* Price manager */
+body.mda-admin .mda-price-grid{min-width:1100px}
+body.mda-admin .mda-price-grid td,body.mda-admin .mda-price-grid th{padding:8px 8px;white-space:nowrap}
+body.mda-admin .mda-price-grid .mda-name{white-space:normal;min-width:200px;max-width:320px}
+body.mda-admin .mda-price-grid tr.is-variation .mda-name{padding-inline-start:26px;color:var(--mda-muted)}
+body.mda-admin .mda-price-grid tr.is-parent{background:#fcfbfd}
+body.mda-admin #wpbody-content .mda-cell{width:118px;min-width:0;direction:ltr;text-align:left;border-radius:10px;border:1px solid var(--mda-border);padding:5px 8px;transition:border-color .15s,background .15s,box-shadow .15s}
+body.mda-admin #wpbody-content .mda-cell:focus{border-color:var(--mda-primary);box-shadow:0 0 0 3px rgba(var(--wca-accent-rgb,143,23,72),.15);outline:0}
+body.mda-admin #wpbody-content .mda-cell.is-dirty{background:#fff8e6;border-color:#f0b429}
+body.mda-admin #wpbody-content .mda-cell.is-preview{background:var(--mda-soft)}
+body.mda-admin .mda-price-grid tr.has-error td{background:#fdeced}
+body.mda-admin .mda-margin{font-weight:700;color:var(--mda-success)}
+body.mda-admin .mda-margin.is-low{color:#b45309}
+body.mda-admin .mda-margin.is-neg{color:var(--mda-danger)}
+body.mda-admin .mda-legend{margin-inline-start:auto;color:var(--mda-muted);font-size:12px}
+body.mda-admin .mda-legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin:0 8px 0 3px;vertical-align:middle}
+body.mda-admin .mda-legend i.is-low{background:#b45309}body.mda-admin .mda-legend i.is-neg{background:var(--mda-danger)}
+body.mda-admin .mda-price-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px}
+body.mda-admin #mda-save.is-busy{opacity:.7;cursor:progress}
+body.mda-admin .mda-bulk-bar{position:sticky;top:40px;z-index:5;border-inline-start:4px solid var(--mda-border);transition:border-color .2s,box-shadow .2s}
+body.mda-admin .mda-bulk-bar.is-active{border-inline-start-color:var(--mda-primary);box-shadow:0 10px 30px rgba(var(--wca-accent-rgb,143,23,72),.14)}
+body.mda-admin .mda-bulk-bar__row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:4px 0}
+body.mda-admin .mda-chip{display:inline-block;padding:1px 8px;border-radius:999px;background:var(--mda-soft);color:var(--mda-primary);font-size:11px}
+.mda-toast{position:fixed;bottom:24px;left:50%;transform:translate(-50%,20px);opacity:0;background:#12805c;color:#fff;padding:10px 18px;border-radius:12px;z-index:100000;box-shadow:0 10px 30px rgba(0,0,0,.18);transition:all .3s cubic-bezier(.2,.7,.2,1);font-family:var(--wca-font,Tahoma,sans-serif);direction:rtl}
+.mda-toast.is-err{background:#c0262d}.mda-toast.is-in{opacity:1;transform:translate(-50%,0)}
+.mda-history-modal{position:fixed;inset:0;background:rgba(20,16,30,.45);z-index:100000;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .2s}
+.mda-history-modal.is-open{opacity:1}
+.mda-history-modal__box{background:#fff;border-radius:18px;padding:22px;width:min(760px,92vw);max-height:80vh;overflow:auto;direction:rtl;position:relative;animation:mda-fade-up .3s both}
+.mda-history-close{position:absolute;top:10px;left:14px;border:0;background:none;font-size:26px;cursor:pointer;color:#6b6880}
+.mda-price-fields .form-field input,.mda-variation-prices input{direction:ltr}

@@ -28,6 +28,7 @@ final class MDA_Admin_Shell {
 					'mda-reconciliation' => 'تطبیق سفارش‌ها',
 				),
 			),
+			'products' => array( 'کالا و قیمت', array( 'mda-prices' => 'مدیریت قیمت‌ها' ) ),
 			'purchase' => array(
 				'خرید و انبار',
 				array(
