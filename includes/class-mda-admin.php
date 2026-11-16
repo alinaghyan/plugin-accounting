@@ -477,7 +477,7 @@ final class MDA_Admin {
     <label class="mda-cash-income">حساب درآمد<select name="income_account_id"><option value="">انتخاب درآمد</option><?php foreach($income as $a): ?><option value="<?php echo (int)$a['id']; ?>"><?php echo esc_html($a['account_code'].' — '.$a['account_name']); ?></option><?php endforeach; ?></select></label>
     <label class="mda-cash-expense" style="display:none">سرفصل هزینه<select name="expense_account_id"><option value="">انتخاب هزینه</option><?php foreach($expense as $a): ?><option value="<?php echo (int)$a['id']; ?>"><?php echo esc_html($a['account_code'].' — '.$a['account_name']); ?></option><?php endforeach; ?></select></label>
     <label class="mda-cash-destination" style="display:none">حساب مقصد انتقال<select name="destination_cash_account_id"><option value="">انتخاب حساب مقصد</option><?php foreach($cash as $a): ?><option value="<?php echo (int)$a['id']; ?>"><?php echo esc_html($a['account_code'].' — '.$a['account_name']); ?></option><?php endforeach; ?></select></label>
-    <label>روش پرداخت<select name="payment_method"><option value="cash">نقد</option><option value="bank">بانک</option><option value="pos">کارتخوان</option><option value="transfer">انتقال</option><option value="cheque">چک</option></select></label>
+    <label>روش پرداخت<select name="payment_method"><option value="cash">نقد</option><option value="bank">بانک</option><option value="pos">کارتخوان</option><option value="transfer">انتقال</option></select></label>
     <label>تاریخ<input type="date" name="transaction_date" required value="<?php echo esc_attr(current_time('Y-m-d')); ?>"></label>
     <label>شماره پیگیری / مرجع<input type="text" name="reference_number" maxlength="120"></label>
    </div>
