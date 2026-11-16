@@ -16,7 +16,7 @@ $doc=(int)$pdo->lastInsertId();$pdo->prepare("INSERT INTO mda_journal_entries (d
 $received=MDA_Cheque_Service::register(array('cheque_type'=>'received','party_id'=>1,'bank_account_id'=>$bank,'amount_minor'=>100000,'currency_code'=>'IRR','cheque_number'=>'R-100','issue_date'=>'2026-01-01','due_date'=>'2026-01-10','request_key'=>'received-cheque-0001'));
 MDA_Cheque_Service::transition($received['cheque_id'],'deposit','2026-01-02','received-deposit-0001');
 MDA_Cheque_Service::transition($received['cheque_id'],'clear','2026-01-03','received-clear-0001');
-MDA_Cheque_Service::transition($received['cheque_id'],'bounce','2026-01-04','received-bounce-0001');
+MDA_Cheque_Service::transition($received['cheque_id'],'bounce','2026-01-04','received-bounce-0001');$retry=MDA_Cheque_Service::transition($received['cheque_id'],'clear','2026-01-03','received-clear-0001');if(empty($retry['duplicate']))throw new RuntimeException('Transition idempotency failed.');
 $issued=MDA_Cheque_Service::register(array('cheque_type'=>'issued','party_id'=>2,'bank_account_id'=>$bank,'amount_minor'=>50000,'currency_code'=>'IRR','cheque_number'=>'I-200','issue_date'=>'2026-01-01','due_date'=>'2026-01-10','request_key'=>'issued-cheque-0001'));
 MDA_Cheque_Service::transition($issued['cheque_id'],'clear','2026-01-03','issued-clear-0001');
 MDA_Cheque_Service::transition($issued['cheque_id'],'bounce','2026-01-04','issued-bounce-0001');
