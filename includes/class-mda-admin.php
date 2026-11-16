@@ -18,6 +18,7 @@ final class MDA_Admin {
   add_action('admin_post_mda_record_sales_refund',array(__CLASS__,'record_sales_refund'));
   add_action('admin_post_mda_run_woocommerce_reconciliation',array(__CLASS__,'run_woocommerce_reconciliation'));
   add_action('admin_post_mda_run_woocommerce_stock_sync',array(__CLASS__,'run_woocommerce_stock_sync'));
+  add_action('admin_post_mda_record_cash_transaction',array(__CLASS__,'record_cash_transaction'));
  }
 
  public static function menu(): void {
@@ -31,6 +32,7 @@ final class MDA_Admin {
   add_submenu_page('mda-accounting','تطبیق سفارش‌های ووکامرس','تطبیق سفارش‌ها',MDA_Capabilities::MANAGE,'mda-reconciliation',array(__CLASS__,'render_reconciliation'));
   add_submenu_page('mda-accounting','همگام‌سازی موجودی ووکامرس','همگام‌سازی موجودی',MDA_Capabilities::MANAGE,'mda-stock-sync',array(__CLASS__,'render_stock_sync'));
   add_submenu_page('mda-accounting','گزارش‌های مالی','گزارش‌های مالی',MDA_Capabilities::MANAGE,'mda-reports',array(__CLASS__,'render_reports'));
+  add_submenu_page('mda-accounting','صندوق، بانک و هزینه‌ها','صندوق و بانک',MDA_Capabilities::MANAGE,'mda-cashbook',array(__CLASS__,'render_cashbook'));
  }
 
  public static function body_class(string $classes): string {
@@ -388,6 +390,41 @@ final class MDA_Admin {
   <?php endif; ?></div>
   <?php
  }
+ public static function record_cash_transaction(): void {
+  self::guard();check_admin_referer('mda_record_cash_transaction');
+  try{$type=sanitize_key(wp_unslash($_POST['transaction_type']??''));$amount=filter_var((string)($_POST['amount_minor']??''),FILTER_VALIDATE_INT);if(false===$amount||$amount<1)throw new InvalidArgumentException('مبلغ تراکنش باید عدد صحیح مثبت باشد.');
+   $key=sanitize_text_field(wp_unslash($_POST['request_key']??''));$date=sanitize_text_field(wp_unslash($_POST['transaction_date']??''));$currency=sanitize_text_field(wp_unslash($_POST['currency_code']??'IRR'));$method=sanitize_key(wp_unslash($_POST['payment_method']??'cash'));
+   $description=sanitize_text_field(wp_unslash($_POST['description']??''));$reference=sanitize_text_field(wp_unslash($_POST['reference_number']??''));
+   $contraId=$type==='receipt'?absint($_POST['income_account_id']??0):($type==='payment'?absint($_POST['expense_account_id']??0):0);$result=MDA_Cash_Service::record($type,(int)$amount,absint($_POST['cash_account_id']??0),$contraId,absint($_POST['destination_cash_account_id']??0),$currency,$method,$key,$date,$description,$reference);
+   $url=add_query_arg(array('page'=>'mda-cashbook','mda_notice'=>$result['duplicate']?'cash_duplicate':'cash_recorded'),admin_url('admin.php'));
+  }catch(Throwable $e){$url=add_query_arg(array('page'=>'mda-cashbook','mda_error'=>rawurlencode($e->getMessage())),admin_url('admin.php'));}
+  wp_safe_redirect($url);exit;
+ }
+ public static function render_cashbook(): void {
+  self::guard();if(!MDA_Database::is_available()){echo '<div class="wrap" dir="rtl"><h1>صندوق و بانک</h1><div class="notice notice-error"><p>PDO_SQLite فعال نیست.</p></div></div>';return;}
+  $cash=MDA_Cash_Service::cash_accounts();$income=MDA_Cash_Service::contra_accounts('income');$expense=MDA_Cash_Service::contra_accounts('expense');$balances=MDA_Cash_Service::balances();$transactions=MDA_Cash_Service::transactions(100);$fmt=static function($v):string{return number_format((int)$v,0,'.',',');};
+  ?>
+  <div class="wrap" dir="rtl"><h1>صندوق، بانک و هزینه‌ها</h1><p>ثبت دریافت و پرداخت عمومی، انتقال بین صندوق/بانک و هزینه‌های عملیاتی. تسویه فاکتور خرید و دریافت فاکتور فروش همچنان از گردش اختصاصی همان فاکتور انجام می‌شود.</p><?php self::notices(); ?>
+  <div class="mda-card" style="margin:16px 0"><h2>ثبت تراکنش جدید</h2><form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>"><input type="hidden" name="action" value="mda_record_cash_transaction"><?php wp_nonce_field('mda_record_cash_transaction'); ?><input type="hidden" name="request_key" value="<?php echo esc_attr(wp_generate_uuid4()); ?>">
+   <div class="mda-grid">
+    <label>نوع تراکنش<select name="transaction_type" data-mda-cash-type required><option value="receipt">دریافت متفرقه</option><option value="payment">پرداخت / هزینه</option><option value="transfer">انتقال بین حساب‌ها</option></select></label>
+    <label>مبلغ<input type="number" name="amount_minor" min="1" required></label>
+    <label>واحد پول<select name="currency_code"><option value="IRR">ریال (IRR)</option><option value="IRT">تومان (IRT)</option></select></label>
+    <label>حساب صندوق/بانک<select name="cash_account_id" required><option value="">انتخاب حساب</option><?php foreach($cash as $a): ?><option value="<?php echo (int)$a['id']; ?>"><?php echo esc_html($a['account_code'].' — '.$a['account_name']); ?></option><?php endforeach; ?></select></label>
+    <label class="mda-cash-income">حساب درآمد<select name="income_account_id"><option value="">انتخاب درآمد</option><?php foreach($income as $a): ?><option value="<?php echo (int)$a['id']; ?>"><?php echo esc_html($a['account_code'].' — '.$a['account_name']); ?></option><?php endforeach; ?></select></label>
+    <label class="mda-cash-expense" style="display:none">سرفصل هزینه<select name="expense_account_id"><option value="">انتخاب هزینه</option><?php foreach($expense as $a): ?><option value="<?php echo (int)$a['id']; ?>"><?php echo esc_html($a['account_code'].' — '.$a['account_name']); ?></option><?php endforeach; ?></select></label>
+    <label class="mda-cash-destination" style="display:none">حساب مقصد انتقال<select name="destination_cash_account_id"><option value="">انتخاب حساب مقصد</option><?php foreach($cash as $a): ?><option value="<?php echo (int)$a['id']; ?>"><?php echo esc_html($a['account_code'].' — '.$a['account_name']); ?></option><?php endforeach; ?></select></label>
+    <label>روش پرداخت<select name="payment_method"><option value="cash">نقد</option><option value="bank">بانک</option><option value="pos">کارتخوان</option><option value="transfer">انتقال</option><option value="cheque">چک</option></select></label>
+    <label>تاریخ<input type="date" name="transaction_date" required value="<?php echo esc_attr(current_time('Y-m-d')); ?>"></label>
+    <label>شماره پیگیری / مرجع<input type="text" name="reference_number" maxlength="120"></label>
+   </div>
+   <p><label>شرح تراکنش<textarea name="description" rows="2" required maxlength="500" style="width:100%"></textarea></label></p>
+   <button class="button button-primary" type="submit" <?php disabled(!$cash); ?>>ثبت تراکنش و سند حسابداری</button>
+  </form></div>
+  <h2 class="mda-section-title">مانده صندوق و بانک</h2><table class="widefat striped"><thead><tr><th>کد حساب</th><th>حساب</th><th>ارز</th><th>مانده</th></tr></thead><tbody><?php foreach($balances as $row): ?><tr><td><?php echo esc_html($row['account_code']); ?></td><td><?php echo esc_html($row['account_name']); ?></td><td><?php echo esc_html($row['currency_code']); ?></td><td><strong><?php echo esc_html($fmt($row['balance_minor'])); ?></strong></td></tr><?php endforeach; ?><?php if(!$balances): ?><tr><td colspan="4">برای حساب‌های نقدی گردش ثبت نشده است.</td></tr><?php endif; ?></tbody></table>
+  <h2 class="mda-section-title">آخرین تراکنش‌ها</h2><table class="widefat striped"><thead><tr><th>شماره سند</th><th>تاریخ</th><th>نوع</th><th>حساب مبدأ</th><th>حساب مقابل/مقصد</th><th>مبلغ</th><th>ارز</th><th>روش</th><th>شرح</th><th>مرجع</th></tr></thead><tbody><?php foreach($transactions as $row): ?><tr><td><?php echo esc_html($row['document_number']); ?></td><td><?php echo esc_html($row['transaction_date']); ?></td><td><?php echo esc_html(array('receipt'=>'دریافت','payment'=>'پرداخت','transfer'=>'انتقال')[$row['transaction_type']]??$row['transaction_type']); ?></td><td><?php echo esc_html($row['account_code'].' — '.$row['account_name']); ?></td><td><?php echo esc_html(($row['destination_code']?($row['destination_code'].' — '.$row['destination_name']):($row['contra_code']?($row['contra_code'].' — '.$row['contra_name']):'—'))); ?></td><td><?php echo esc_html($fmt($row['amount_minor'])); ?></td><td><?php echo esc_html($row['currency_code']); ?></td><td><?php echo esc_html($row['payment_method']); ?></td><td><?php echo esc_html($row['description']); ?></td><td><?php echo esc_html($row['reference_number']??'—'); ?></td></tr><?php endforeach; ?><?php if(!$transactions): ?><tr><td colspan="10">تراکنشی ثبت نشده است.</td></tr><?php endif; ?></tbody></table></div>
+  <?php
+ }
  public static function render_parties(): void {
   self::guard();if(!MDA_Database::is_available()){echo '<div class="wrap"><div class="notice notice-error"><p>برای مدیریت طرف‌حساب‌ها باید PDO_SQLite فعال باشد.</p></div></div>';return;}$edit=!empty($_GET['edit'])?MDA_Party_Service::get(absint($_GET['edit'])):null;$roles=array('customer'=>'مشتری','supplier'=>'تأمین‌کننده','employee'=>'کارمند','partner'=>'شریک','other'=>'سایر');$rows=MDA_Party_Service::search(sanitize_text_field(wp_unslash($_GET['s']??'')));
   ?>
@@ -470,7 +507,7 @@ final class MDA_Admin {
 
  private static function notices(): void {
   if(!empty($_GET['mda_notice'])) {
-   $messages=array('party_saved'=>'طرف‌حساب ذخیره شد.','party_archived'=>'طرف‌حساب بایگانی شد.','account_saved'=>'حساب ذخیره شد.','purchase_draft_created'=>'پیش‌نویس خرید ایجاد شد.','purchase_posted'=>'فاکتور قطعی و موجودی ثبت شد.','purchase_already_posted'=>'این فاکتور قبلاً قطعی شده است.','payment_recorded'=>'پرداخت مرحله‌ای ثبت شد.','payment_duplicate'=>'این پرداخت قبلاً ثبت شده است.','purchase_return_posted'=>'مرجوعی و سند اصلاحی ثبت شد.','sales_receipt_recorded'=>'دریافت مشتری و سند حسابداری ثبت شد.','sales_receipt_duplicate'=>'این دریافت قبلاً ثبت شده است.','sales_return_posted'=>'مرجوعی فروش و سند اصلاحی ثبت شد.','sales_return_duplicate'=>'این مرجوعی قبلاً ثبت شده است.','sales_refund_posted'=>'استرداد وجه و سند حسابداری ثبت شد.','sales_refund_duplicate'=>'این استرداد قبلاً ثبت شده است.','reconciliation_run'=>'دسته تطبیق سفارش‌ها اجرا شد.','stock_sync_run'=>'دسته همگام‌سازی موجودی اجرا شد.');
+   $messages=array('party_saved'=>'طرف‌حساب ذخیره شد.','party_archived'=>'طرف‌حساب بایگانی شد.','account_saved'=>'حساب ذخیره شد.','purchase_draft_created'=>'پیش‌نویس خرید ایجاد شد.','purchase_posted'=>'فاکتور قطعی و موجودی ثبت شد.','purchase_already_posted'=>'این فاکتور قبلاً قطعی شده است.','payment_recorded'=>'پرداخت مرحله‌ای ثبت شد.','payment_duplicate'=>'این پرداخت قبلاً ثبت شده است.','purchase_return_posted'=>'مرجوعی و سند اصلاحی ثبت شد.','sales_receipt_recorded'=>'دریافت مشتری و سند حسابداری ثبت شد.','sales_receipt_duplicate'=>'این دریافت قبلاً ثبت شده است.','sales_return_posted'=>'مرجوعی فروش و سند اصلاحی ثبت شد.','sales_return_duplicate'=>'این مرجوعی قبلاً ثبت شده است.','sales_refund_posted'=>'استرداد وجه و سند حسابداری ثبت شد.','sales_refund_duplicate'=>'این استرداد قبلاً ثبت شده است.','reconciliation_run'=>'دسته تطبیق سفارش‌ها اجرا شد.','stock_sync_run'=>'دسته همگام‌سازی موجودی اجرا شد.','cash_recorded'=>'تراکنش صندوق/بانک و سند حسابداری ثبت شد.','cash_duplicate'=>'این تراکنش قبلاً ثبت شده است.');
    $key=sanitize_key(wp_unslash($_GET['mda_notice']));$message=$messages[$key]??'عملیات با موفقیت انجام شد.';
    echo '<div class="notice notice-success"><p>'.esc_html($message).'</p></div>';
   }

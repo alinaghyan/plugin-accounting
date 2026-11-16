@@ -2,7 +2,7 @@
 /**
  * Plugin Name: MaliDev Accounting & ERP
  * Description: هسته حسابداری و مدیریت عملیات فروشگاه ووکامرس با پایگاه داده اختصاصی SQLite.
- * Version: 0.13.0
+ * Version: 0.14.0
  * Requires at least: 6.3
  * Requires PHP: 8.1
  * Author: MaliDev
@@ -10,7 +10,7 @@
  * Domain Path: /languages
  */
 defined( 'ABSPATH' ) || exit;
-define( 'MDA_VERSION', '0.13.0' );
+define( 'MDA_VERSION', '0.14.0' );
 define( 'MDA_FILE', __FILE__ );
 define( 'MDA_PATH', plugin_dir_path( __FILE__ ) );
 define( 'MDA_URL', plugin_dir_url( __FILE__ ) );
@@ -32,6 +32,7 @@ require_once MDA_PATH . 'includes/class-mda-outbox-service.php';
 require_once MDA_PATH . 'includes/class-mda-reconciliation-service.php';
 require_once MDA_PATH . 'includes/class-mda-stock-sync-service.php';
 require_once MDA_PATH . 'includes/class-mda-report-service.php';
+require_once MDA_PATH . 'includes/class-mda-cash-service.php';
 require_once MDA_PATH . 'includes/class-mda-woocommerce.php';
 require_once MDA_PATH . 'includes/class-mda-phone-sales-admin.php';
 require_once MDA_PATH . 'includes/class-mda-admin.php';
