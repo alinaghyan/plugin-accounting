@@ -8,7 +8,7 @@ final class MDA_Outbox_Service {
   $status=$order->get_status();if(!in_array($status,array('processing','completed'),true))return;
   if((float)$order->get_total_refunded()>0)throw new RuntimeException('سفارش دارای استرداد قبلی است؛ ابتدا باید گردش مرجوعی تعریف شود.');
   $currency=strtoupper((string)$order->get_currency());
-  $warehouse=(int)get_option('mda_sales_warehouse_id',0);
+  $warehouse=(int)$order->get_meta('_mda_sales_warehouse_id',true);if($warehouse<1)$warehouse=(int)get_option('mda_sales_warehouse_id',0);
   if($warehouse<1){$q=MDA_Database::connection()->query("SELECT id FROM mda_warehouses WHERE warehouse_code='MAIN' AND is_active=1 LIMIT 1");$warehouse=(int)$q->fetchColumn();}
   $items=array();foreach($order->get_items('line_item') as $itemId=>$item){
    $product=$item->get_product();$qty=(string)wc_format_decimal($item->get_quantity(),6);
