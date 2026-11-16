@@ -49,7 +49,7 @@ final class MDA_Outbox_Service {
    }
   }
   $remaining=(int)$db->query("SELECT COUNT(*) FROM mda_integration_outbox WHERE status IN ('pending','failed') AND attempts<max_attempts")->fetchColumn();
-  if($remaining>0&&!wp_next_scheduled('mda_process_outbox'))wp_schedule_single_event(time()+60,'mda_process_outbox_batch');
+  if($remaining>0&&!wp_next_scheduled('mda_process_outbox_batch'))wp_schedule_single_event(time()+60,'mda_process_outbox_batch');
   return$results;
  }
  private static function money($value): int {
