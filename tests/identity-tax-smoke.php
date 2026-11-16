@@ -12,26 +12,26 @@ require_once dirname( __DIR__ ) . '/includes/class-mda-jalali.php';
 require_once dirname( __DIR__ ) . '/includes/class-mda-price-service.php';
 require_once dirname( __DIR__ ) . '/includes/class-mda-product-grid-service.php';
 require_once dirname( __DIR__ ) . '/includes/class-mda-price-message.php';
-require_once dirname( __DIR__ ) . '/includes/identity/class-mda-shahkar.php';
+require_once dirname( __DIR__ ) . '/includes/malidev-identity/class-malidev-shahkar.php';
 require_once dirname( __DIR__ ) . '/includes/identity/class-mda-moodian.php';
 
 // National code.
-mda_assert( MDA_Shahkar::is_valid_code( '0499370899' ), 'valid national code' );
-mda_assert( ! MDA_Shahkar::is_valid_code( '0499370898' ), 'bad checksum rejected' );
-mda_assert( ! MDA_Shahkar::is_valid_code( '1111111111' ), 'repeated digits rejected' );
-mda_assert( '0499370899' === MDA_Shahkar::normalize_code( '۰۴۹۹-۳۷۰-۸۹۹' ), 'Persian digits normalised' );
+mda_assert( MaliDev_Shahkar::is_valid_code( '0499370899' ), 'valid national code' );
+mda_assert( ! MaliDev_Shahkar::is_valid_code( '0499370898' ), 'bad checksum rejected' );
+mda_assert( ! MaliDev_Shahkar::is_valid_code( '1111111111' ), 'repeated digits rejected' );
+mda_assert( '0499370899' === MaliDev_Shahkar::normalize_code( '۰۴۹۹-۳۷۰-۸۹۹' ), 'Persian digits normalised' );
 
 // Mobile, same canonical form as the SMS plugin (so HMAC proofs match across plugins).
 foreach ( array( '09121234567', '+989121234567', '00989121234567', '9121234567', '۰۹۱۲۱۲۳۴۵۶۷' ) as $m ) {
-	mda_assert( '09121234567' === MDA_Shahkar::normalize_mobile( $m ), "mobile $m" );
+	mda_assert( '09121234567' === MaliDev_Shahkar::normalize_mobile( $m ), "mobile $m" );
 }
-mda_assert( '' === MDA_Shahkar::normalize_mobile( '02112345678' ), 'landline is not a mobile' );
+mda_assert( '' === MaliDev_Shahkar::normalize_mobile( '02112345678' ), 'landline is not a mobile' );
 
 // api.ir mapping: only explicit false is a mismatch.
-mda_assert( 'match' === MDA_Shahkar::interpret( 200, array( 'success' => true, 'data' => true ) ), 'match' );
-mda_assert( 'mismatch' === MDA_Shahkar::interpret( 200, array( 'success' => true, 'data' => false ) ), 'mismatch' );
-mda_assert( 'error' === MDA_Shahkar::interpret( 200, array( 'success' => true ) ), 'unclear = error' );
-mda_assert( 'error' === MDA_Shahkar::interpret( 500, array( 'success' => true, 'data' => true ) ), 'http error' );
+mda_assert( 'match' === MaliDev_Shahkar::interpret( 200, array( 'success' => true, 'data' => true ) ), 'match' );
+mda_assert( 'mismatch' === MaliDev_Shahkar::interpret( 200, array( 'success' => true, 'data' => false ) ), 'mismatch' );
+mda_assert( 'error' === MaliDev_Shahkar::interpret( 200, array( 'success' => true ) ), 'unclear = error' );
+mda_assert( 'error' === MaliDev_Shahkar::interpret( 500, array( 'success' => true, 'data' => true ) ), 'http error' );
 
 // Verhoeff (textbook vector 236 → 3, 2363 valid).
 mda_assert( 3 === MDA_Moodian::verhoeff( '236' ), 'verhoeff 236' );

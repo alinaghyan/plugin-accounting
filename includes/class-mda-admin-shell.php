@@ -28,7 +28,7 @@ final class MDA_Admin_Shell {
 					'mda-reconciliation' => 'تطبیق سفارش‌ها',
 				),
 			),
-			'products' => array( 'کالا و قیمت', array( 'mda-products' => 'اتاق کنترل محصولات', 'mda-identity' => 'شاهکار و مؤدیان' ) ),
+			'products' => array( 'کالا و قیمت', array( 'mda-products' => 'اتاق کنترل محصولات', 'malidev-shahkar' => 'احراز هویت شاهکار', 'mda-identity' => 'سامانه مؤدیان' ) ),
 			'purchase' => array(
 				'خرید و انبار',
 				array(

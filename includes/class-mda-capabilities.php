@@ -88,7 +88,7 @@ final class MDA_Capabilities {
 		if ( in_array( $slug, array( 'mda-prices', 'mda-products' ), true ) ) {
 			return 'edit_products';
 		}
-		if ( 'mda-identity' === $slug ) {
+		if ( in_array( $slug, array( 'mda-identity', 'malidev-shahkar' ), true ) ) {
 			return 'manage_woocommerce';
 		}
 		return $map[ $slug ] ?? self::MANAGE;

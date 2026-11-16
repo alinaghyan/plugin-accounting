@@ -4,7 +4,7 @@
  * these instead of talking to Shahkar/Moodian themselves. Every function is guarded so a newer copy
  * shipped by another plugin can take precedence.
  *
- * @package MaliDev_Accounting
+ * @package MaliDev\Identity
  */
 
 defined( 'ABSPATH' ) || exit;
@@ -12,20 +12,20 @@ defined( 'ABSPATH' ) || exit;
 if ( ! function_exists( 'malidev_identity_provider' ) ) {
 	/** Which class answers Shahkar calls: the SMS plugin's (if active) or the accounting copy. */
 	function malidev_identity_provider(): string {
-		return class_exists( 'SMSWT_Shahkar' ) ? 'SMSWT_Shahkar' : 'MDA_Shahkar';
+		return MaliDev_Shahkar::legacy_owner() ? 'SMSWT_Shahkar' : 'MaliDev_Shahkar';
 	}
 }
 
 if ( ! function_exists( 'malidev_national_code_is_valid' ) ) {
 	function malidev_national_code_is_valid( string $code ): bool {
-		return MDA_Shahkar::is_valid_code( MDA_Shahkar::normalize_code( $code ) );
+		return MaliDev_Shahkar::is_valid_code( MaliDev_Shahkar::normalize_code( $code ) );
 	}
 }
 
 if ( ! function_exists( 'malidev_shahkar_active' ) ) {
 	/** Shahkar enabled and an API key saved. */
 	function malidev_shahkar_active(): bool {
-		return MDA_Shahkar::active();
+		return MaliDev_Shahkar::active();
 	}
 }
 
@@ -42,6 +42,13 @@ if ( ! function_exists( 'malidev_shahkar_verify' ) ) {
 	}
 }
 
+if ( ! function_exists( 'malidev_shahkar_settings_url' ) ) {
+	/** Link other plugins show next to their own settings ("manage Shahkar here"). */
+	function malidev_shahkar_settings_url(): string {
+		return MaliDev_Shahkar::url();
+	}
+}
+
 if ( ! function_exists( 'malidev_identity_for_order' ) ) {
 	/**
 	 * Buyer identity recorded on an order.
@@ -49,50 +56,14 @@ if ( ! function_exists( 'malidev_identity_for_order' ) ) {
 	 * @return array{code:string,verified:bool,status:string}
 	 */
 	function malidev_identity_for_order( WC_Order $order ): array {
-		$code   = MDA_Shahkar::normalize_code( (string) $order->get_meta( MDA_Shahkar::ORDER_META ) );
-		$status = (string) $order->get_meta( MDA_Shahkar::ORDER_STATUS );
+		$code   = MaliDev_Shahkar::normalize_code( (string) $order->get_meta( MaliDev_Shahkar::ORDER_META ) );
+		$status = (string) $order->get_meta( MaliDev_Shahkar::ORDER_STATUS );
 		if ( '' === $code && $order->get_customer_id() ) {
-			$s    = MDA_Shahkar::settings();
+			$s    = MaliDev_Shahkar::settings();
 			$key  = sanitize_key( (string) $s['meta_key'] ) ?: 'otino_national_code';
-			$code = MDA_Shahkar::normalize_code( (string) get_user_meta( $order->get_customer_id(), $key, true ) );
+			$code = MaliDev_Shahkar::normalize_code( (string) get_user_meta( $order->get_customer_id(), $key, true ) );
 		}
 		return array( 'code' => $code, 'verified' => 'match' === $status, 'status' => $status );
 	}
 }
 
-if ( ! function_exists( 'malidev_moodian_settings' ) ) {
-	function malidev_moodian_settings(): array {
-		return MDA_Moodian::settings();
-	}
-}
-
-if ( ! function_exists( 'malidev_moodian_tax_id' ) ) {
-	function malidev_moodian_tax_id( WC_Order $order ): string {
-		$st = MDA_Moodian::status( $order );
-		if ( empty( $st['tax_id'] ) && MDA_Moodian::ready() ) {
-			MDA_Moodian::payload( $order ); // Assigns serial + tax id.
-			$st = MDA_Moodian::status( $order );
-		}
-		return (string) ( $st['tax_id'] ?? '' );
-	}
-}
-
-if ( ! function_exists( 'malidev_moodian_invoice' ) ) {
-	/** Official-format invoice payload for an order. */
-	function malidev_moodian_invoice( WC_Order $order ): array {
-		return MDA_Moodian::payload( $order );
-	}
-}
-
-if ( ! function_exists( 'malidev_moodian_status' ) ) {
-	/** array{status?:string,serial?:int,tax_id?:string,reference?:string,error?:string} */
-	function malidev_moodian_status( WC_Order $order ): array {
-		return MDA_Moodian::status( $order );
-	}
-}
-
-if ( ! function_exists( 'malidev_product_sstid' ) ) {
-	function malidev_product_sstid( WC_Product $product ): string {
-		return MDA_Moodian::sstid( $product );
-	}
-}

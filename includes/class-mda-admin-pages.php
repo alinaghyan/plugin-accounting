@@ -491,7 +491,7 @@ final class MDA_Admin_Pages {
 		echo '<tr><th>شناسه ملی / کد ملی</th><td><input name="seller_national_id" dir="ltr" value="' . esc_attr( $s['seller_national_id'] ) . '"></td></tr>';
 		echo '<tr><th>کد اقتصادی</th><td><input name="seller_economic_code" dir="ltr" value="' . esc_attr( $s['seller_economic_code'] ) . '"></td></tr>';
 		echo '<tr><th>کد پستی</th><td><input name="seller_postal_code" dir="ltr" value="' . esc_attr( $s['seller_postal_code'] ) . '"></td></tr>';
-		echo '<tr><th>سامانه مؤدیان</th><td><a href="' . esc_url( admin_url( 'admin.php?page=mda-identity&tab=moodian' ) ) . '">تنظیمات سامانه مؤدیان و شاهکار</a></td></tr>';
+		echo '<tr><th>سامانه مؤدیان</th><td><a href="' . esc_url( admin_url( 'admin.php?page=mda-identity' ) ) . '">تنظیمات سامانه مؤدیان</a></td></tr>';
 		echo '</table><p><button class="button button-primary">ذخیره تنظیمات</button></p></form></div>';
 
 		echo '<div id="mda-price-messages"></div>';

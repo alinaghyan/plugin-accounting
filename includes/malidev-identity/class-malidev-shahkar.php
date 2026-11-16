@@ -1,23 +1,26 @@
 <?php
 /**
- * Shahkar (national code ↔ mobile owner) verification — shared MaliDev identity service.
+ * MaliDev Identity — Shahkar (national code ↔ mobile owner) verification shared by every MaliDev
+ * product (accounting, invoice studio, SMS & tracking).
  *
- * Port of the SMS plugin's SMSWT_Shahkar using the SAME option, order meta and user meta keys, so
- * the invoice plugin («استودیو فاکتور») and the SMS plugin read one source of truth. When the SMS
- * plugin is active its own class keeps owning the checkout hooks and this class only provides the
- * API/settings screen; otherwise this class registers the checkout field itself.
+ * Each product bundles this folder; loader.php makes sure only the newest copy runs, so a shop with
+ * one, two or all three plugins gets exactly one checkout field, one settings page
+ * («افزونه اختصاصی ← احراز هویت شاهکار») and one set of stored data. Option and meta keys are the
+ * ones the SMS plugin introduced (smswt_*) so existing orders and customers keep working.
  *
  * - Field stored in the user meta key shared with Otino (otino_national_code by default),
  *   so existing customer data keeps working.
  * - Classic checkout and Checkout block are both supported.
  * - The API key lives in the settings screen; it is never printed back or logged.
  *
- * @package MaliDev_Accounting
+ * @package MaliDev\Identity
  */
 
 defined( 'ABSPATH' ) || exit;
 
-final class MDA_Shahkar {
+final class MaliDev_Shahkar {
+	public const PAGE = 'malidev-shahkar';
+
 	public const OPTION       = 'smswt_shahkar_settings';
 	public const ENDPOINT     = 'https://s.api.ir/api/sw1/Shahkar';
 	public const FIELD        = 'billing_national_code';
@@ -35,15 +38,19 @@ final class MDA_Shahkar {
 	/** Result of the check done during validation, reused when the order is saved. */
 	private static ?array $verified = null;
 
-	/** True when the SMS plugin owns the checkout hooks (its class is loaded). */
-	public static function external(): bool {
-		return class_exists( 'SMSWT_Shahkar' );
+	/**
+	 * An older SMS plugin (before it bundled this library) registers its own checkout field; in that
+	 * case this copy stays out of the checkout to avoid a duplicate field.
+	 */
+	public static function legacy_owner(): bool {
+		return class_exists( 'SMSWT_Shahkar', false ) && ! method_exists( 'SMSWT_Shahkar', 'uses_library' );
 	}
 
 	public static function init(): void {
-		add_action( 'admin_post_mda_shahkar_save', array( self::class, 'handle_save' ) );
-		add_action( 'admin_post_mda_shahkar_test', array( self::class, 'handle_test' ) );
-		if ( self::external() ) {
+		add_action( 'admin_menu', array( self::class, 'menu' ), 98 );
+		add_action( 'admin_post_malidev_shahkar_save', array( self::class, 'handle_save' ) );
+		add_action( 'admin_post_malidev_shahkar_test', array( self::class, 'handle_test' ) );
+		if ( self::legacy_owner() ) {
 			return;
 		}
 		add_filter( 'woocommerce_checkout_fields', array( self::class, 'add_classic_field' ), 30 );
@@ -52,6 +59,31 @@ final class MDA_Shahkar {
 		add_action( 'woocommerce_init', array( self::class, 'register_block_field' ) );
 		add_action( 'woocommerce_store_api_checkout_update_order_from_request', array( self::class, 'validate_block' ), 20, 2 );
 		add_action( 'woocommerce_admin_order_data_after_billing_address', array( self::class, 'render_admin_order' ) );
+	}
+
+	/* ------------------------------------------------------------------ *
+	 * Shared admin page under «افزونه اختصاصی»
+	 * ------------------------------------------------------------------ */
+
+	public static function menu(): void {
+		global $admin_page_hooks;
+		$parent = (string) apply_filters( 'malidev_identity_parent_menu', 'woocamers-custom-plugin' );
+		if ( empty( $admin_page_hooks[ $parent ] ) ) {
+			add_menu_page( 'افزونه اختصاصی', 'افزونه اختصاصی', 'manage_options', $parent, '__return_null', 'dashicons-screenoptions', 3 );
+		}
+		add_submenu_page( $parent, 'احراز هویت شاهکار', 'احراز هویت شاهکار', self::CAP, self::PAGE, array( self::class, 'render_page' ) );
+	}
+
+	public static function url(): string {
+		return admin_url( 'admin.php?page=' . self::PAGE );
+	}
+
+	public static function render_page(): void {
+		echo '<div class="wrap malidev-identity" dir="rtl"><h1>احراز هویت شاهکار و کد ملی</h1>';
+		echo '<p class="description">سرویس مشترک افزونه‌های MaliDev: فیلد کد ملی صفحه پرداخت، تطبیق با شاهکار، و نمایش کد ملی و نشان تأیید در فاکتور، همه از همین تنظیمات استفاده می‌کنند؛ فرقی ندارد کدام افزونه‌ها نصب باشند.</p>';
+		echo '<style>.malidev-identity .mda-card{background:#fff;border:1px solid #e2e4ea;border-radius:12px;padding:16px 20px;margin:14px 0;max-width:960px}</style>';
+		self::render_admin_page();
+		echo '</div>';
 	}
 
 	/* ------------------------------------------------------------------ *
@@ -314,7 +346,7 @@ final class MDA_Shahkar {
 		}
 		$result = self::verify( $code, $mobile, get_current_user_id() );
 		if ( in_array( $result['status'], array( 'invalid', 'mismatch' ), true ) ) {
-			$errors->add( 'mda_national_code', $result['message'] );
+			$errors->add( 'malidev_national_code', $result['message'] );
 			return;
 		}
 		self::$verified = $result;
@@ -351,7 +383,7 @@ final class MDA_Shahkar {
 				'sanitize_callback' => array( self::class, 'normalize_code' ),
 				'validate_callback' => static function ( $value ) {
 					$value = self::normalize_code( (string) $value );
-					return '' === $value || self::is_valid_code( $value ) ? null : new WP_Error( 'mda_national_code', 'کد ملی وارد شده معتبر نیست.' );
+					return '' === $value || self::is_valid_code( $value ) ? null : new WP_Error( 'malidev_national_code', 'کد ملی وارد شده معتبر نیست.' );
 				},
 			)
 		);
@@ -370,7 +402,7 @@ final class MDA_Shahkar {
 		}
 		$result = self::verify( $code, $mobile, (int) $order->get_customer_id() );
 		if ( in_array( $result['status'], array( 'invalid', 'mismatch' ), true ) ) {
-			throw new \Automattic\WooCommerce\StoreApi\Exceptions\RouteException( 'mda_national_code', esc_html( $result['message'] ), 400 );
+			throw new \Automattic\WooCommerce\StoreApi\Exceptions\RouteException( 'malidev_national_code', esc_html( $result['message'] ), 400 );
 		}
 		self::store_on_order( $order, $result );
 	}
@@ -426,22 +458,22 @@ final class MDA_Shahkar {
 			return;
 		}
 		$s = self::settings();
-		$notice = get_transient( 'mda_shahkar_notice_' . get_current_user_id() );
+		$notice = get_transient( 'malidev_shahkar_notice_' . get_current_user_id() );
 		if ( is_array( $notice ) ) {
-			delete_transient( 'mda_shahkar_notice_' . get_current_user_id() );
+			delete_transient( 'malidev_shahkar_notice_' . get_current_user_id() );
 			printf( '<div class="notice inline %1$s"><p>%2$s</p></div>', ! empty( $notice['ok'] ) ? 'notice-success' : 'notice-error', esc_html( (string) $notice['message'] ) );
 		}
 		$has_key = '' !== (string) $s['api_key'];
-		if ( self::external() ) {
-			echo '<div class="notice notice-info inline"><p>افزونه پیامک و رهگیری فعال است و فیلد کد ملی صفحه پرداخت را همان افزونه مدیریت می‌کند. تنظیمات زیر مشترک است و در هر دو افزونه یکسان اعمال می‌شود.</p></div>';
+		if ( self::legacy_owner() ) {
+			echo '<div class="notice notice-warning inline"><p>نسخه فعلی افزونه پیامک و رهگیری هنوز فیلد کد ملی را خودش مدیریت می‌کند. تنظیمات زیر مشترک است؛ با به‌روزرسانی افزونه پیامک همه چیز از همین صفحه اداره می‌شود.</p></div>';
 		}
 		?>
 		<div class="mda-card">
 			<h2>احراز هویت شاهکار و کد ملی</h2>
 			<p class="wca-muted">شاهکار سامانه‌ی سازمان تنظیم مقررات و ارتباطات رادیویی است که بررسی می‌کند شماره موبایل به نام صاحب کد ملی ثبت شده باشد. اتصال از طریق وب‌سرویس api.ir انجام می‌شود: در <a href="https://p.api.ir" target="_blank" rel="noopener noreferrer">p.api.ir</a> ثبت‌نام کنید، سرویس «شاهکار» را فعال و شارژ کنید و توکن بخش «وب سرویس» را اینجا وارد کنید. هر استعلام هزینه دارد؛ نتیجه‌ی موفق ۳۰ روز ذخیره می‌شود تا استعلام تکراری انجام نشود.</p>
 			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
-				<input type="hidden" name="action" value="mda_shahkar_save">
-				<?php wp_nonce_field( 'mda_shahkar_save' ); ?>
+				<input type="hidden" name="action" value="malidev_shahkar_save">
+				<?php wp_nonce_field( 'malidev_shahkar_save' ); ?>
 				<table class="form-table" role="presentation">
 					<tr><th scope="row">فعالسازی احراز هویت شاهکار</th><td>
 						<label><input type="checkbox" name="enabled" value="1" <?php checked( ! empty( $s['enabled'] ) ); ?>> تکمیل سفارش فقط وقتی کد ملی با شماره موبایل مشتری تطبیق داشته باشد</label>
@@ -476,8 +508,8 @@ final class MDA_Shahkar {
 			<h2>تست اتصال شاهکار</h2>
 			<p class="wca-muted">یک استعلام واقعی انجام می‌شود و از اعتبار حساب api.ir کم می‌شود. اطلاعات واردشده ذخیره نمی‌شود.</p>
 			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">
-				<input type="hidden" name="action" value="mda_shahkar_test">
-				<?php wp_nonce_field( 'mda_shahkar_test' ); ?>
+				<input type="hidden" name="action" value="malidev_shahkar_test">
+				<?php wp_nonce_field( 'malidev_shahkar_test' ); ?>
 				<input type="text" name="code" inputmode="numeric" maxlength="10" dir="ltr" placeholder="کد ملی" required>
 				<input type="text" name="mobile" inputmode="tel" maxlength="14" dir="ltr" placeholder="09xxxxxxxxx" required>
 				<button type="submit" class="button" <?php disabled( ! $has_key ); ?>>استعلام آزمایشی</button>
@@ -487,7 +519,7 @@ final class MDA_Shahkar {
 	}
 
 	public static function handle_save(): void {
-		self::guard( 'mda_shahkar_save' );
+		self::guard( 'malidev_shahkar_save' );
 		$s = self::settings();
 		// phpcs:disable WordPress.Security.NonceVerification.Missing -- verified in guard().
 		$s['enabled']  = empty( $_POST['enabled'] ) ? 0 : 1;
@@ -512,7 +544,7 @@ final class MDA_Shahkar {
 	}
 
 	public static function handle_test(): void {
-		self::guard( 'mda_shahkar_test' );
+		self::guard( 'malidev_shahkar_test' );
 		$s = self::settings();
 		if ( '' === (string) $s['api_key'] ) {
 			self::redirect( 'ابتدا کلید API را ذخیره کنید.', false );
@@ -541,8 +573,8 @@ final class MDA_Shahkar {
 	}
 
 	private static function redirect( string $message, bool $ok ): void {
-		set_transient( 'mda_shahkar_notice_' . get_current_user_id(), array( 'ok' => $ok, 'message' => $message ), 60 );
-		wp_safe_redirect( admin_url( 'admin.php?page=mda-identity' ) );
+		set_transient( 'malidev_shahkar_notice_' . get_current_user_id(), array( 'ok' => $ok, 'message' => $message ), 60 );
+		wp_safe_redirect( admin_url( 'admin.php?page=' . self::PAGE ) );
 		exit;
 	}
 }
