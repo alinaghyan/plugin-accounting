@@ -33,9 +33,9 @@ final class MDA_Gateway_Settlement_Service {
    $insertLine=$db->prepare('INSERT INTO mda_gateway_settlement_lines (settlement_id,line_number,payment_id,order_id,gross_minor,fee_minor,net_minor,reference_number,payload_hash,created_at) VALUES (:sid,:line,:payment,:order,:gross,:fee,:net,:reference,:hash,:now)');
    foreach($rows as $i=>$row){
     $payment->execute(array(':gateway'=>$gateway,':order'=>$row['order_id']));$p=$payment->fetch();if(!$p)throw new RuntimeException('برای سفارش '.$row['order_id'].' پرداخت ثبت‌شده‌ای از این درگاه پیدا نشد؛ ردیف بدون تطبیق باقی می‌ماند و تسویه ثبت نشد.');
-    if($p['currency_code']!==$currency||(int)$p['gross_minor']!==$row['gross_minor'])throw new RuntimeException('مبلغ ناخالص یا ارز سفارش '.$row['order_id'].' با پرداخت ثبت‌شده تطبیق ندارد.');
-    $already=$db->prepare('SELECT COALESCE(SUM(l.gross_minor),0) FROM mda_gateway_settlement_lines l JOIN mda_gateway_settlement_events e ON e.settlement_id=l.settlement_id AND e.action=\'posted\' WHERE l.payment_id=:payment');$already->execute(array(':payment'=>$p['id']));$settled=(int)$already->fetchColumn();
-    if($row['gross_minor']>$p['gross_minor']-$settled)throw new RuntimeException('مبلغ تسویه سفارش '.$row['order_id'].' از مانده تسویه‌نشده بیشتر است.');
+    if($p['currency_code']!==$currency)throw new RuntimeException('ارز سفارش '.$row['order_id'].' با ارز تسویه مطابقت ندارد.');
+    $already=$db->prepare('SELECT COALESCE(SUM(gross_minor),0) FROM mda_gateway_settlement_lines WHERE payment_id=:payment');$already->execute(array(':payment'=>$p['id']));$allocated=(int)$already->fetchColumn();
+    if($row['gross_minor']>$p['gross_minor']-$allocated)throw new RuntimeException('مبلغ تسویه سفارش '.$row['order_id'].' از مانده تسویه‌نشده بیشتر است.');
     $insertLine->execute(array(':sid'=>$sid,':line'=>$i+1,':payment'=>$p['id'],':order'=>$row['order_id'],':gross'=>$row['gross_minor'],':fee'=>$row['fee_minor'],':net'=>$row['net_minor'],':reference'=>$row['reference']?:null,':hash'=>hash('sha256',wp_json_encode($row)),':now'=>gmdate('Y-m-d H:i:s')));
    }
    return array('settlement_id'=>$sid,'duplicate'=>false);
