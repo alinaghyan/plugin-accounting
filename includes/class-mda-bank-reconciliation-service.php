@@ -8,6 +8,9 @@ final class MDA_Bank_Reconciliation_Service {
  }
  private static function validDate(string $date):bool {$d=DateTimeImmutable::createFromFormat('!Y-m-d',$date);return $d&&$d->format('Y-m-d')===$date;}
  private static function safeAdd(int $a,int $b):int {if($b>0&&$a>PHP_INT_MAX-$b)throw new OverflowException('جمع گردش صورت‌حساب بیش از ظرفیت عدد صحیح است.');if($b<0&&$a<PHP_INT_MIN-$b)throw new OverflowException('جمع گردش صورت‌حساب بیش از ظرفیت عدد صحیح است.');return$a+$b;}
+ public static function bank_accounts():array {
+  return MDA_Database::connection()->query("SELECT id,account_code,account_name FROM mda_accounts WHERE account_code GLOB '112*' AND account_type='asset' AND is_control=0 AND allow_manual_entry=1 AND is_active=1 AND archived_at IS NULL ORDER BY account_code")->fetchAll();
+ }
  public static function import_csv(int $accountId,string $currency,string $reference,int $opening,int $closing,string $csv,string $key):array {
   $currency=strtoupper($currency);$reference=sanitize_text_field($reference);$key=trim($key);
   if($accountId<1||!in_array($currency,array('IRR','IRT'),true)||$reference===''||strlen($reference)>120||strlen($key)<12||strlen($key)>191||trim($csv)===''||strlen($csv)>1048576)throw new InvalidArgumentException('اطلاعات صورت‌حساب بانکی معتبر نیست.');
@@ -26,7 +29,7 @@ final class MDA_Bank_Reconciliation_Service {
   $calculated=self::safeAdd(self::safeAdd($opening,$credits),-$debits);if($calculated!==$closing)throw new InvalidArgumentException('مانده پایانی با مانده اول دوره و جمع واریز/برداشت‌ها برابر نیست.');
   sort($dates);$start=$dates[0];$end=$dates[count($dates)-1];$payloadHash=hash('sha256',wp_json_encode(array($accountId,$currency,$reference,$opening,$closing,$rows)));$now=gmdate('Y-m-d H:i:s');
   return MDA_Database::transaction(static function(PDO $db)use($accountId,$currency,$reference,$opening,$closing,$rows,$key,$payloadHash,$start,$end,$now):array{
-   $account=$db->prepare("SELECT id FROM mda_accounts WHERE id=:id AND account_code GLOB '11*' AND account_type='asset' AND is_control=0 AND allow_manual_entry=1 AND is_active=1 AND archived_at IS NULL");$account->execute(array(':id'=>$accountId));if(!$account->fetchColumn())throw new InvalidArgumentException('حساب بانکی انتخاب‌شده معتبر یا فعال نیست.');
+   $account=$db->prepare("SELECT id FROM mda_accounts WHERE id=:id AND account_code GLOB '112*' AND account_type='asset' AND is_control=0 AND allow_manual_entry=1 AND is_active=1 AND archived_at IS NULL");$account->execute(array(':id'=>$accountId));if(!$account->fetchColumn())throw new InvalidArgumentException('حساب بانکی انتخاب‌شده معتبر یا فعال نیست.');
    $old=$db->prepare('SELECT id,payload_hash FROM mda_bank_statement_imports WHERE idempotency_key=:key');$old->execute(array(':key'=>$key));$existing=$old->fetch();
    if($existing){if(!hash_equals((string)$existing['payload_hash'],$payloadHash))throw new RuntimeException('کلید یکتا برای صورت‌حساب متفاوتی استفاده شده است.');return array('import_id'=>(int)$existing['id'],'duplicate'=>true,'line_count'=>count($rows));}
    $same=$db->prepare('SELECT id,payload_hash FROM mda_bank_statement_imports WHERE bank_account_id=:account AND currency_code=:currency AND statement_reference=:reference');$same->execute(array(':account'=>$accountId,':currency'=>$currency,':reference'=>$reference));$sameRow=$same->fetch();
