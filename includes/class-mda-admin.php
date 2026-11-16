@@ -17,6 +17,7 @@ final class MDA_Admin {
   add_action('admin_post_mda_post_sales_return',array(__CLASS__,'post_sales_return'));
   add_action('admin_post_mda_record_sales_refund',array(__CLASS__,'record_sales_refund'));
   add_action('admin_post_mda_run_woocommerce_reconciliation',array(__CLASS__,'run_woocommerce_reconciliation'));
+  add_action('admin_post_mda_run_woocommerce_stock_sync',array(__CLASS__,'run_woocommerce_stock_sync'));
  }
 
  public static function menu(): void {
@@ -28,6 +29,7 @@ final class MDA_Admin {
   add_submenu_page('mda-accounting','دریافت از مشتری','دریافت از مشتری',MDA_Capabilities::MANAGE,'mda-sales-receipts',array(__CLASS__,'render_sales_receipts'));
   add_submenu_page('mda-accounting','مرجوعی فروش و استرداد','مرجوعی فروش',MDA_Capabilities::MANAGE,'mda-sales-returns',array(__CLASS__,'render_sales_returns'));
   add_submenu_page('mda-accounting','تطبیق سفارش‌های ووکامرس','تطبیق سفارش‌ها',MDA_Capabilities::MANAGE,'mda-reconciliation',array(__CLASS__,'render_reconciliation'));
+  add_submenu_page('mda-accounting','همگام‌سازی موجودی ووکامرس','همگام‌سازی موجودی',MDA_Capabilities::MANAGE,'mda-stock-sync',array(__CLASS__,'render_stock_sync'));
  }
 
  public static function body_class(string $classes): string {
@@ -337,6 +339,29 @@ final class MDA_Admin {
   <?php if(!$runs): ?><tr><td colspan="9">هنوز تطبیقی اجرا نشده است.</td></tr><?php endif; ?></tbody></table></div>
   <?php
  }
+ public static function run_woocommerce_stock_sync(): void {
+  self::guard();check_admin_referer('mda_run_woocommerce_stock_sync');
+  $warehouseId=absint($_POST['warehouse_id']??0);
+  try{$result=MDA_Stock_Sync_Service::run_batch($warehouseId,100);$url=add_query_arg(array('page'=>'mda-stock-sync','warehouse_id'=>$warehouseId,'run_id'=>$result['run_id'],'mda_notice'=>'stock_sync_run'),admin_url('admin.php'));}
+  catch(Throwable $e){$url=add_query_arg(array('page'=>'mda-stock-sync','warehouse_id'=>$warehouseId,'mda_error'=>rawurlencode($e->getMessage())),admin_url('admin.php'));}
+  wp_safe_redirect($url);exit;
+ }
+ public static function render_stock_sync(): void {
+  self::guard();if(!MDA_Database::is_available()){echo '<div class="wrap" dir="rtl"><h1>همگام‌سازی موجودی</h1><div class="notice notice-error"><p>PDO_SQLite فعال نیست.</p></div></div>';return;}
+  $warehouses=array_values(array_filter(MDA_Stock_Sync_Service::warehouses(),static fn($w)=>(int)$w['is_active']===1));$warehouseId=absint($_GET['warehouse_id']??0);if(!$warehouseId&&$warehouses)$warehouseId=(int)$warehouses[0]['id'];
+  $runs=MDA_Stock_Sync_Service::runs(30);$runId=absint($_GET['run_id']??0);$items=$runId?MDA_Stock_Sync_Service::items($runId):array();
+  $pending=(int)MDA_Database::connection()->query("SELECT COUNT(*) FROM mda_integration_outbox WHERE status IN ('pending','processing','failed')")->fetchColumn();
+  ?>
+  <div class="wrap" dir="rtl"><h1>همگام‌سازی موجودی ووکامرس</h1><p>جهت همگام‌سازی فقط از SQLite به WooCommerce است. موجودی حسابداری مرجع است؛ این ابزار از WooCommerce CRUD استفاده می‌کند و هیچ SQL مستقیمی روی جداول ووکامرس اجرا نمی‌کند.</p><?php self::notices(); ?>
+  <div class="mda-card" style="margin:16px 0"><h2>پیش از اجرا</h2><ul><li>ابتدا تطبیق سفارش‌های ووکامرس را اجرا کنید.</li><li>رویدادهای صف فروش باید تعیین تکلیف شده باشند؛ در غیر این صورت عملیات به‌صورت خودکار متوقف می‌شود.</li><li>فقط یک انبار به موجودی واحد WooCommerce نگاشت می‌شود؛ انبارهای دیگر به‌صورت مستقل در SQLite باقی می‌مانند.</li><li>محصولاتی که مدیریت موجودی ندارند یا تنوع آن‌ها موجودی را از والد به ارث می‌برد، رد می‌شوند.</li></ul>
+   <p><strong>رویدادهای باز/ناموفق صف:</strong> <?php echo (int)$pending; ?></p>
+   <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>"><input type="hidden" name="action" value="mda_run_woocommerce_stock_sync"><?php wp_nonce_field('mda_run_woocommerce_stock_sync'); ?>
+   <label>انبار مرجع <select name="warehouse_id" required><?php foreach($warehouses as $w): ?><option value="<?php echo (int)$w['id']; ?>" <?php selected($warehouseId,(int)$w['id']); ?>><?php echo esc_html($w['warehouse_name'].' ('.$w['warehouse_code'].')'); ?></option><?php endforeach; ?></select></label>
+   <button class="button button-primary" type="submit" <?php disabled(!$warehouses); ?>>اجرای دسته همگام‌سازی (حداکثر ۱۰۰ کالا)</button></form></div>
+  <?php if($runId): ?><div class="mda-card"><h2>جزئیات اجرای #<?php echo (int)$runId; ?></h2><table class="widefat striped"><thead><tr><th>محصول</th><th>تنوع</th><th>موجودی SQLite</th><th>موجودی قبلی Woo</th><th>موجودی جدید Woo</th><th>وضعیت</th><th>شرح</th></tr></thead><tbody><?php foreach($items as $item): ?><tr><td><?php echo (int)$item['product_id']; ?></td><td><?php echo (int)$item['variation_id']; ?></td><td><?php echo esc_html($item['sqlite_quantity']); ?></td><td><?php echo esc_html($item['woo_quantity_before']??'—'); ?></td><td><?php echo esc_html($item['woo_quantity_after']??'—'); ?></td><td><?php echo esc_html($item['status']); ?></td><td><?php echo esc_html($item['message']); ?></td></tr><?php endforeach; if(!$items): ?><tr><td colspan="7">برای این اجرا جزئیات محصولی ثبت نشده است.</td></tr><?php endif; ?></tbody></table></div><?php endif; ?>
+  <h2 class="mda-section-title">تاریخچه همگام‌سازی</h2><table class="widefat striped"><thead><tr><th>زمان</th><th>انبار</th><th>بررسی‌شده</th><th>همگام‌شده</th><th>ردشده</th><th>ناموفق</th><th>صف باز</th><th>وضعیت</th><th>جزئیات</th></tr></thead><tbody><?php foreach($runs as $run): ?><tr><td><?php echo esc_html($run['created_at']); ?></td><td><?php echo esc_html($run['warehouse_name']); ?></td><td><?php echo (int)$run['scanned_count']; ?></td><td><?php echo (int)$run['synced_count']; ?></td><td><?php echo (int)$run['skipped_count']; ?></td><td><?php echo (int)$run['failed_count']; ?></td><td><?php echo (int)$run['pending_events_count']; ?></td><td><span class="mda-chip"><?php echo esc_html($run['status']); ?></span><br><?php echo esc_html($run['message']); ?></td><td><a href="<?php echo esc_url(add_query_arg(array('page'=>'mda-stock-sync','warehouse_id'=>(int)$run['warehouse_id'],'run_id'=>(int)$run['id']),admin_url('admin.php'))); ?>">نمایش</a></td></tr><?php endforeach; if(!$runs): ?><tr><td colspan="9">هنوز همگام‌سازی اجرا نشده است.</td></tr><?php endif; ?></tbody></table></div>
+  <?php
+ }
  public static function render_parties(): void {
   self::guard();if(!MDA_Database::is_available()){echo '<div class="wrap"><div class="notice notice-error"><p>برای مدیریت طرف‌حساب‌ها باید PDO_SQLite فعال باشد.</p></div></div>';return;}$edit=!empty($_GET['edit'])?MDA_Party_Service::get(absint($_GET['edit'])):null;$roles=array('customer'=>'مشتری','supplier'=>'تأمین‌کننده','employee'=>'کارمند','partner'=>'شریک','other'=>'سایر');$rows=MDA_Party_Service::search(sanitize_text_field(wp_unslash($_GET['s']??'')));
   ?>
@@ -419,7 +444,7 @@ final class MDA_Admin {
 
  private static function notices(): void {
   if(!empty($_GET['mda_notice'])) {
-   $messages=array('party_saved'=>'طرف‌حساب ذخیره شد.','party_archived'=>'طرف‌حساب بایگانی شد.','account_saved'=>'حساب ذخیره شد.','purchase_draft_created'=>'پیش‌نویس خرید ایجاد شد.','purchase_posted'=>'فاکتور قطعی و موجودی ثبت شد.','purchase_already_posted'=>'این فاکتور قبلاً قطعی شده است.','payment_recorded'=>'پرداخت مرحله‌ای ثبت شد.','payment_duplicate'=>'این پرداخت قبلاً ثبت شده است.','purchase_return_posted'=>'مرجوعی و سند اصلاحی ثبت شد.','sales_receipt_recorded'=>'دریافت مشتری و سند حسابداری ثبت شد.','sales_receipt_duplicate'=>'این دریافت قبلاً ثبت شده است.','sales_return_posted'=>'مرجوعی فروش و سند اصلاحی ثبت شد.','sales_return_duplicate'=>'این مرجوعی قبلاً ثبت شده است.','sales_refund_posted'=>'استرداد وجه و سند حسابداری ثبت شد.','sales_refund_duplicate'=>'این استرداد قبلاً ثبت شده است.','reconciliation_run'=>'دسته تطبیق سفارش‌ها اجرا شد.');
+   $messages=array('party_saved'=>'طرف‌حساب ذخیره شد.','party_archived'=>'طرف‌حساب بایگانی شد.','account_saved'=>'حساب ذخیره شد.','purchase_draft_created'=>'پیش‌نویس خرید ایجاد شد.','purchase_posted'=>'فاکتور قطعی و موجودی ثبت شد.','purchase_already_posted'=>'این فاکتور قبلاً قطعی شده است.','payment_recorded'=>'پرداخت مرحله‌ای ثبت شد.','payment_duplicate'=>'این پرداخت قبلاً ثبت شده است.','purchase_return_posted'=>'مرجوعی و سند اصلاحی ثبت شد.','sales_receipt_recorded'=>'دریافت مشتری و سند حسابداری ثبت شد.','sales_receipt_duplicate'=>'این دریافت قبلاً ثبت شده است.','sales_return_posted'=>'مرجوعی فروش و سند اصلاحی ثبت شد.','sales_return_duplicate'=>'این مرجوعی قبلاً ثبت شده است.','sales_refund_posted'=>'استرداد وجه و سند حسابداری ثبت شد.','sales_refund_duplicate'=>'این استرداد قبلاً ثبت شده است.','reconciliation_run'=>'دسته تطبیق سفارش‌ها اجرا شد.','stock_sync_run'=>'دسته همگام‌سازی موجودی اجرا شد.');
    $key=sanitize_key(wp_unslash($_GET['mda_notice']));$message=$messages[$key]??'عملیات با موفقیت انجام شد.';
    echo '<div class="notice notice-success"><p>'.esc_html($message).'</p></div>';
   }
