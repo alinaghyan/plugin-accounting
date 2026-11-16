@@ -437,7 +437,7 @@ final class MDA_Admin {
  }
  public static function render_bank_reconciliation(): void {
   self::guard();if(!MDA_Database::is_available()){echo '<div class="wrap" dir="rtl"><h1>مغایرت‌گیری بانکی</h1><div class="notice notice-error"><p>PDO_SQLite فعال نیست.</p></div></div>';return;}
-  $accounts=MDA_Cash_Service::cash_accounts();$imports=MDA_Bank_Reconciliation_Service::imports(50);$importId=absint($_GET['import_id']??0);$selected=$importId?MDA_Bank_Reconciliation_Service::get_import($importId):null;$summary=$selected?MDA_Bank_Reconciliation_Service::summary($importId):null;$lines=$selected?MDA_Bank_Reconciliation_Service::lines($importId,500):array();$lineId=absint($_GET['line_id']??0);$selectedLine=null;$candidates=array();
+  $accounts=MDA_Bank_Reconciliation_Service::bank_accounts();$imports=MDA_Bank_Reconciliation_Service::imports(50);$importId=absint($_GET['import_id']??0);$selected=$importId?MDA_Bank_Reconciliation_Service::get_import($importId):null;$summary=$selected?MDA_Bank_Reconciliation_Service::summary($importId):null;$lines=$selected?MDA_Bank_Reconciliation_Service::lines($importId,500):array();$lineId=absint($_GET['line_id']??0);$selectedLine=null;$candidates=array();
   foreach($lines as $line){if((int)$line['id']===$lineId){$selectedLine=$line;break;}}
   if($selectedLine&&(!in_array($selectedLine['current_action'],array('matched','ignored'),true)))$candidates=MDA_Bank_Reconciliation_Service::candidates($lineId,30);
   $fmt=static function($v):string{return number_format((int)$v,0,'.',',');};
