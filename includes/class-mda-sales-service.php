@@ -47,8 +47,9 @@ final class MDA_Sales_Service {
    $sourceType=in_array(($payload['channel']??'website'),array('phone','in_person'),true)?$payload['channel']:'woocommerce';
    $docNumber='MDA-SAL-'.gmdate('Ymd').'-'.strtoupper(bin2hex(random_bytes(4)));$now=gmdate('Y-m-d H:i:s');
    $journalKey='sale-journal-'.$key;$journalHash=hash('sha256',wp_json_encode(array($orderId,$lines,$date,$currency)));
+   $createdBy=(int)($payload['created_by_user_id']??0);if($createdBy<1)$createdBy=get_current_user_id()?:0;
    $journal=$db->prepare("INSERT INTO mda_documents (document_number,document_type,document_status,party_id,source_type,source_id,idempotency_key,payload_hash,currency_code,amount_scale,document_date,description,created_by,created_at,posted_at) VALUES (:number,'sale','posted',:party,:source_type,:source,:key,:hash,:currency,1,:date,:description,:user,:now,:now)");
-   $journal->execute(array(':number'=>$docNumber,':party'=>$partyId,':source_type'=>$sourceType,':source'=>(string)$orderId,':key'=>$journalKey,':hash'=>$journalHash,':currency'=>$currency,':date'=>$date,':description'=>'ثبت فروش سفارش '.$orderId,':user'=>get_current_user_id()?:null,':now'=>$now));$journalId=(int)$db->lastInsertId();
+   $journal->execute(array(':number'=>$docNumber,':party'=>$partyId,':source_type'=>$sourceType,':source'=>(string)$orderId,':key'=>$journalKey,':hash'=>$journalHash,':currency'=>$currency,':date'=>$date,':description'=>'ثبت فروش سفارش '.$orderId,':user'=>$createdBy?:null,':now'=>$now));$journalId=(int)$db->lastInsertId();
    $entry=$db->prepare('INSERT INTO mda_journal_entries (document_id,entry_number,account_id,party_id,debit_minor,credit_minor,memo,created_at) VALUES (:doc,:num,:account,:party,:debit,:credit,:memo,:now)');
    foreach($lines as $i=>$line)$entry->execute(array(':doc'=>$journalId,':num'=>$i+1,':account'=>$line['account_id'],':party'=>$line['party_id'],':debit'=>$line['debit_minor'],':credit'=>$line['credit_minor'],':memo'=>$line['memo'],':now'=>$now));
    $insert=$db->prepare("INSERT INTO mda_sales_documents (source_type,source_id,order_id,party_id,warehouse_id,document_number,document_date,currency_code,product_total_minor,shipping_total_minor,fee_total_minor,tax_total_minor,total_minor,cogs_total_minor,idempotency_key,payload_hash,accounting_document_id,created_at) VALUES (:source_type,:source_id,:order,:party,:warehouse,:number,:date,:currency,:products,:shipping,:fees,:tax,:total,:cogs,:key,:hash,:journal,:now)");
@@ -61,7 +62,7 @@ final class MDA_Sales_Service {
     $update->execute(array(':qty'=>$row['qty'],':now'=>$now,':product'=>$row['product'],':variation'=>$row['variation'],':warehouse'=>$warehouse));if(1!==$update->rowCount())throw new RuntimeException('به‌روزرسانی وضعیت بهای تمام‌شده انجام نشد.');
    }
    $audit=$db->prepare("INSERT INTO mda_audit_logs (user_id,action,object_type,object_id,after_json,created_at) VALUES (:user,'sale_posted','sale',:id,:after,:now)");
-   $audit->execute(array(':user'=>get_current_user_id()?:null,':id'=>(string)$saleId,':after'=>wp_json_encode(array('order_id'=>$orderId,'total_minor'=>$total,'cogs_total_minor'=>$costTotal,'channel'=>$sourceType)),':now'=>$now));
+   $audit->execute(array(':user'=>$createdBy?:null,':id'=>(string)$saleId,':after'=>wp_json_encode(array('order_id'=>$orderId,'total_minor'=>$total,'cogs_total_minor'=>$costTotal,'channel'=>$sourceType)),':now'=>$now));
    return array('sales_document_id'=>$saleId,'document_number'=>$docNumber,'accounting_document_id'=>$journalId,'cogs_total_minor'=>$costTotal,'duplicate'=>false);
   });
  }
