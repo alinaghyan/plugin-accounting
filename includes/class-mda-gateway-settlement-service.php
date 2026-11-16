@@ -78,16 +78,18 @@ final class MDA_Gateway_Settlement_Service {
  private static function integer($v):int{$v=strtr(trim((string)$v),array('۰'=>'0','۱'=>'1','۲'=>'2','۳'=>'3','۴'=>'4','۵'=>'5','۶'=>'6','۷'=>'7','۸'=>'8','۹'=>'9','٠'=>'0','١'=>'1','٢'=>'2','٣'=>'3','٤'=>'4','٥'=>'5','٦'=>'6','٧'=>'7','٨'=>'8','٩'=>'9',','=>''));if(!preg_match('/^(0|[1-9][0-9]*)$/',$v)||strlen($v)>15)throw new InvalidArgumentException('مبلغ باید عدد صحیح مثبت باشد.');return(int)$v;}
  private static function add(int $a,int $b):int{if($b>0&&$a>PHP_INT_MAX-$b)throw new OverflowException('مجموع مبالغ از ظرفیت عدد صحیح بیشتر است.');return$a+$b;}
 
- public static function capture(int $orderId,string $gateway,int $gross,string $reference,string $key):array {
-  $gateway=sanitize_key($gateway);$reference=trim($reference);
-  if($orderId<1||$gateway===''||$gross<1||strlen($key)<12||strlen($reference)>120)throw new InvalidArgumentException('اطلاعات دریافت درگاه معتبر نیست.');
-  return MDA_Database::transaction(static function(PDO $db)use($orderId,$gateway,$gross,$reference,$key):array{
+ public static function capture(int $orderId,string $gateway,int $gross,string $reference,string $key,string $currency=''):array {
+  $gateway=sanitize_key($gateway);$reference=trim($reference);$currency=strtoupper($currency);
+  if($orderId<1||$gateway===''||$gross<1||strlen($key)<12||strlen($reference)>120||($currency!==''&&!in_array($currency,array('IRR','IRT'),true)))throw new InvalidArgumentException('اطلاعات دریافت درگاه معتبر نیست.');
+  return MDA_Database::transaction(static function(PDO $db)use($orderId,$gateway,$gross,$reference,$key,$currency):array{
    $old=$db->prepare('SELECT id,payload_hash,accounting_document_id FROM mda_gateway_payments WHERE idempotency_key=:key');$old->execute(array(':key'=>$key));$existing=$old->fetch();
    $saleQ=$db->prepare("SELECT * FROM mda_sales_documents WHERE order_id=:order AND status='posted'");$saleQ->execute(array(':order'=>$orderId));$sale=$saleQ->fetch();if(!$sale)throw new RuntimeException('سند فروش قطعی این سفارش پیدا نشد.');
    $hash=hash('sha256',wp_json_encode(array($orderId,$gateway,$gross,$sale['currency_code'],$reference)));
    if($existing){if(!hash_equals((string)$existing['payload_hash'],$hash))throw new RuntimeException('کلید یکتا برای پرداخت متفاوتی استفاده شده است.');return array('payment_id'=>(int)$existing['id'],'duplicate'=>true);}
    $ga=$db->prepare('SELECT account_id FROM mda_gateway_accounts WHERE gateway_key=:key');$ga->execute(array(':key'=>$gateway));$clearing=(int)$ga->fetchColumn();if(!$clearing)throw new RuntimeException('حساب واسط درگاه تعریف نشده است.');
    if($sale['currency_code']!=='IRR'&&$sale['currency_code']!=='IRT')throw new RuntimeException('ارز سفارش پشتیبانی نمی‌شود.');
+   if($currency!==''&&$sale['currency_code']!==$currency)throw new RuntimeException('ارز پرداخت درگاه با ارز سفارش ووکامرس یکسان نیست.');
+   $closed=$db->prepare("SELECT 1 FROM mda_financial_periods WHERE status='closed' AND :date BETWEEN starts_on AND ends_on LIMIT 1");$closed->execute(array(':date'=>$sale['document_date']));if($closed->fetchColumn())throw new RuntimeException('ثبت دریافت درگاه در دوره مالی بسته‌شده مجاز نیست.');
    $paid=$db->prepare('SELECT COALESCE(SUM(amount_minor),0) FROM mda_sales_receipts WHERE sales_document_id=:id');$paid->execute(array(':id'=>$sale['id']));$received=(int)$paid->fetchColumn();
    $gw=$db->prepare('SELECT COALESCE(SUM(gross_minor),0) FROM mda_gateway_payments WHERE sales_document_id=:id');$gw->execute(array(':id'=>$sale['id']));$captured=(int)$gw->fetchColumn();
    if($gross>(int)$sale['total_minor']-$received-$captured)throw new RuntimeException('مبلغ پرداخت درگاه از مانده قابل دریافت سفارش بیشتر است.');
