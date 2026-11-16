@@ -52,7 +52,7 @@ final class MDA_Phone_Sales_Admin {
  }
  public static function retry_outbox_event(): void {
   self::guard();$id=absint($_POST['event_id']??0);check_admin_referer('mda_retry_outbox_'.$id);
-  try{$db=MDA_Database::connection();$q=$db->prepare("UPDATE mda_integration_outbox SET status='pending',attempts=0,max_attempts=12,available_at=:now,locked_at=NULL,last_error=NULL WHERE id=:id AND status='failed'");$q->execute(array(':now'=>gmdate('Y-m-d H:i:s'),':id'=>$id));if($q->rowCount()!==1)throw new RuntimeException('رویداد ناموفق پیدا نشد یا وضعیت آن قابل تلاش مجدد نیست.');if(!wp_next_scheduled('mda_process_outbox'))wp_schedule_single_event(time()+5,'mda_process_outbox');wp_safe_redirect(admin_url('admin.php?page=mda-phone-sales&retry=queued'));exit;}catch(Throwable $e){wp_safe_redirect(add_query_arg(array('page'=>'mda-phone-sales','mda_error'=>rawurlencode($e->getMessage())),admin_url('admin.php')));exit;}
+  try{$db=MDA_Database::connection();$q=$db->prepare("UPDATE mda_integration_outbox SET status='pending',attempts=0,max_attempts=12,available_at=:now,locked_at=NULL,last_error=NULL WHERE id=:id AND status='failed'");$q->execute(array(':now'=>gmdate('Y-m-d H:i:s'),':id'=>$id));if($q->rowCount()!==1)throw new RuntimeException('رویداد ناموفق پیدا نشد یا وضعیت آن قابل تلاش مجدد نیست.');if(!wp_next_scheduled('mda_process_outbox_batch'))wp_schedule_single_event(time()+5,'mda_process_outbox_batch');wp_safe_redirect(admin_url('admin.php?page=mda-phone-sales&retry=queued'));exit;}catch(Throwable $e){wp_safe_redirect(add_query_arg(array('page'=>'mda-phone-sales','mda_error'=>rawurlencode($e->getMessage())),admin_url('admin.php')));exit;}
  }
  public static function create(): void {
   self::guard();check_admin_referer('mda_create_phone_sale');
@@ -84,7 +84,7 @@ final class MDA_Phone_Sales_Admin {
    $order=wc_create_order(array('status'=>'pending','created_via'=>$channel==='phone'?'mda_phone':'mda_in_person'));
    if(is_wp_error($order))throw new RuntimeException($order->get_error_message());
    $order->set_created_via($channel==='phone'?'mda_phone':'mda_in_person');$order->set_currency(get_woocommerce_currency());$order->set_billing_first_name($name);$order->set_billing_phone($phone);$order->set_payment_method('cod');$order->set_payment_method_title($channel==='phone'?'فروش تلفنی':'فروش حضوری');
-   $order->update_meta_data('_mda_phone_request_key',$key);$order->update_meta_data('_mda_sales_warehouse_id',$warehouse);
+   $order->update_meta_data('_mda_phone_request_key',$key);$order->update_meta_data('_mda_sales_warehouse_id',$warehouse);$order->update_meta_data('_mda_created_by_user_id',get_current_user_id());
    foreach($lines as $line)$order->add_product($line['product'],$line['qty'],array('subtotal'=>$line['total'],'total'=>$line['total']));
    $order->calculate_totals(false);$order->save();$orderId=(int)$order->get_id();
    $db->prepare("UPDATE mda_phone_sale_requests SET order_id=:id,status='created',updated_at=:now WHERE request_key=:key")->execute(array(':id'=>$orderId,':now'=>gmdate('Y-m-d H:i:s'),':key'=>$key));
