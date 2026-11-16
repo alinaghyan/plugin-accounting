@@ -5,7 +5,7 @@ CREATE TABLE IF NOT EXISTS mda_sales_receipts (
  party_id INTEGER NOT NULL,
  amount_minor INTEGER NOT NULL CHECK (amount_minor > 0),
  cash_account_id INTEGER NOT NULL,
- payment_method TEXT NOT NULL CHECK (payment_method IN ('cash','bank','pos','transfer','gateway')),
+ payment_method TEXT NOT NULL CHECK (payment_method IN ('cash','bank','pos','transfer')),
  payment_date TEXT NOT NULL,
  idempotency_key TEXT NOT NULL UNIQUE,
  payload_hash TEXT NOT NULL,
