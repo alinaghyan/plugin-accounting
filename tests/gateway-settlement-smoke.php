@@ -6,8 +6,13 @@ function sanitize_key($v){return preg_replace('/[^a-z0-9_\-]/','',strtolower((st
 function sanitize_text_field($v){return trim(strip_tags((string)$v));}
 function wp_json_encode($v){return json_encode($v,JSON_UNESCAPED_UNICODE);}
 function get_current_user_id(){return 1;}
+function wc_format_decimal($v,$d=0){return number_format((float)$v,$d,'.','');}
+function wp_next_scheduled($hook){return false;}
+function wp_schedule_single_event($time,$hook){}
+class MDA_Test_Gateway_Order {public function get_id(){return 502;}public function get_currency(){return 'IRR';}public function is_paid(){return true;}public function get_total(){return '50000';}}
 require_once dirname(__DIR__).'/includes/class-mda-database.php';
 require_once dirname(__DIR__).'/includes/class-mda-gateway-settlement-service.php';
+require_once dirname(__DIR__).'/includes/class-mda-outbox-service.php';
 $pdo=new PDO('sqlite::memory:');$pdo->setAttribute(PDO::ATTR_ERRMODE,PDO::ERRMODE_EXCEPTION);$pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE,PDO::FETCH_ASSOC);$pdo->exec('PRAGMA foreign_keys=ON');
 $ref=new ReflectionClass('MDA_Database');$prop=$ref->getProperty('connection');$prop->setAccessible(true);$prop->setValue(null,$pdo);
 foreach(glob(dirname(__DIR__).'/database/migrations/*.sql') as $file)$pdo->exec(file_get_contents($file));
@@ -23,6 +28,9 @@ $st=$pdo->prepare('INSERT INTO mda_journal_entries (document_id,entry_number,acc
 $st=$pdo->prepare("INSERT INTO mda_sales_documents (source_type,source_id,order_id,party_id,warehouse_id,document_number,document_date,currency_code,product_total_minor,shipping_total_minor,fee_total_minor,tax_total_minor,total_minor,cogs_total_minor,tax_snapshot_complete,idempotency_key,payload_hash,accounting_document_id,created_at) VALUES ('woocommerce','501',501,:party,:warehouse,'MDA-SAL-501','2026-11-15','IRR',100000,0,0,0,100000,0,1,'sale-key-501','sale-hash-501',:doc,:now)");
 $st->execute(array(':party'=>$party,':warehouse'=>$warehouse,':doc'=>$doc,':now'=>$now));
 MDA_Gateway_Settlement_Service::configure('sample_gateway','درگاه آزمایشی');
+MDA_Outbox_Service::enqueue_gateway_payment(new MDA_Test_Gateway_Order(),'sample_gateway','TX-502');
+$queued=$pdo->query("SELECT event_type,payload_json FROM mda_integration_outbox WHERE event_key='wc-gateway-capture-502-sample_gateway'")->fetch();
+if(!$queued||$queued['event_type']!=='gateway.capture'||json_decode($queued['payload_json'],true)['gross_minor']!==50000)throw new RuntimeException('WooCommerce gateway capture was not durably queued.');
 $capture=MDA_Gateway_Settlement_Service::capture(501,'sample_gateway',100000,'TX-501','capture-key-501');
 if(empty($capture['payment_id'])||!empty($capture['duplicate']))throw new RuntimeException('Gateway capture failed.');
 $csv1="order_id,gross_minor,fee_minor,net_minor,reference\n501,40000,800,39200,TX-501";
