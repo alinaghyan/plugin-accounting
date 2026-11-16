@@ -36,6 +36,8 @@ require_once MDA_PATH . 'includes/class-mda-cash-service.php';
 require_once MDA_PATH . 'includes/class-mda-bank-reconciliation-service.php';
 require_once MDA_PATH . 'includes/class-mda-cheque-service.php';
 require_once MDA_PATH . 'includes/class-mda-cheque-admin.php';
+require_once MDA_PATH . 'includes/class-mda-gateway-settlement-service.php';
+require_once MDA_PATH . 'includes/class-mda-gateway-admin.php';
 require_once MDA_PATH . 'includes/class-mda-woocommerce.php';
 require_once MDA_PATH . 'includes/class-mda-phone-sales-admin.php';
 require_once MDA_PATH . 'includes/class-mda-admin.php';
@@ -45,4 +47,5 @@ add_action('plugins_loaded',static function(): void {
  try { MDA_Installer::migrate(); } catch(Throwable $exception) { error_log('MaliDev Accounting migration error: '.$exception->getMessage()); }
  MDA_Plugin::instance()->init();
  MDA_Cheque_Admin::init();
+ MDA_Gateway_Admin::init();
 });
