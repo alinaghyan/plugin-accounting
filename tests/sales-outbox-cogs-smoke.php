@@ -21,6 +21,7 @@ require_once dirname(__DIR__).'/includes/class-mda-sales-receipt-service.php';
 require_once dirname(__DIR__).'/includes/class-mda-sales-return-service.php';
 require_once dirname(__DIR__).'/includes/class-mda-reconciliation-service.php';
 require_once dirname(__DIR__).'/includes/class-mda-stock-sync-service.php';
+require_once dirname(__DIR__).'/includes/class-mda-report-service.php';
 class WooCommerce {}
 final class SmokeWCDate { public function date($format){return gmdate($format,strtotime('2026-11-16 10:00:00'));} }
 final class SmokeWCProduct { public static string $stock='8'; public static string $stockStatus='instock'; public function get_sku(){return 'T-502';} public function managing_stock(){return true;} public function get_manage_stock(){return true;} public function get_stock_quantity(){return self::$stock;} public function set_stock_quantity($value){self::$stock=(string)$value;} public function set_stock_status($value){self::$stockStatus=(string)$value;} public function save(){return 1;} }
@@ -73,6 +74,16 @@ if(!empty($refund['duplicate'])||MDA_Sales_Refund_Service::summary((int)$return[
 try{MDA_Sales_Refund_Service::record((int)$return['return_id'],1800,$cash,'cash','test-sales-refund-over-001','2026-11-16');throw new RuntimeException('Over-refund was accepted.');}catch(InvalidArgumentException $expected){}
 try{$db->exec("UPDATE mda_sales_returns SET total_minor=1 WHERE id=".(int)$return['return_id']);throw new RuntimeException('Posted sales return was mutable.');}catch(PDOException $expected){}
 $totals=$db->query("SELECT SUM(debit_minor) debit,SUM(credit_minor) credit FROM mda_journal_entries")->fetch();if((int)$totals['debit']!==(int)$totals['credit'])throw new RuntimeException('Sales return/refund journals are not balanced.');
+$plReport=MDA_Report_Service::profit_and_loss('2026-11-16','2026-11-16');
+if(($plReport['totals']['IRR']['net_profit_minor']??null)!==2500)throw new RuntimeException('Profit and loss report did not reflect sales return and COGS reversal.');
+$orderReport=MDA_Report_Service::order_profitability('2026-11-16','2026-11-16',100);
+if(count($orderReport)!==1||$orderReport[0]['gross_profit_minor']!==1500)throw new RuntimeException('Order profitability report is incorrect.');
+$productReport=MDA_Report_Service::product_profitability('2026-11-16','2026-11-16',100);
+if(count($productReport)!==1||$productReport[0]['net_revenue_minor']!==2500||$productReport[0]['net_cogs_minor']!==1000)throw new RuntimeException('Product profitability report is incorrect.');
+$channelReport=MDA_Report_Service::channel_profitability('2026-11-16','2026-11-16');
+if(count($channelReport)!==1||$channelReport[0]['gross_profit_minor']!==1500)throw new RuntimeException('Sales channel profitability report is incorrect.');
+$inventoryReport=MDA_Report_Service::inventory_valuation($warehouse);
+if(($inventoryReport['totals']['IRR']??null)!==9000)throw new RuntimeException('Inventory valuation report is incorrect.');
 $stockSync=MDA_Stock_Sync_Service::run_batch($warehouse,100);
 if($stockSync['status']!=='completed'||$stockSync['synced']!==1||SmokeWCProduct::$stock!=='9')throw new RuntimeException('SQLite-to-WooCommerce stock sync failed: '.wp_json_encode($stockSync));
 if((int)$db->query('SELECT COUNT(*) FROM mda_stock_sync_items WHERE run_id='.(int)$stockSync['run_id'])->fetchColumn()!==1)throw new RuntimeException('Stock sync audit item was not recorded.');
