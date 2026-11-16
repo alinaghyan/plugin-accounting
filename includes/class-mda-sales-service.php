@@ -67,9 +67,10 @@ final class MDA_Sales_Service {
 
  private static function customer_party(PDO $db,array $customer,int $orderId): int {
   $phone=preg_replace('/[^0-9+]/','',(string)($customer['phone']??''));$email=sanitize_email((string)($customer['email']??''));$name=trim(sanitize_text_field((string)($customer['name']??'')));
-  $q=null;if($phone!==''){$q=$db->prepare('SELECT p.id FROM mda_parties p JOIN mda_party_roles r ON r.party_id=p.id AND r.role_key=\'customer\' WHERE p.phone=:phone AND p.archived_at IS NULL LIMIT 1');$q->execute(array(':phone'=>$phone));}
-  if(!$q||!$q->fetchColumn()){if($email!==''){$q=$db->prepare('SELECT p.id FROM mda_parties p JOIN mda_party_roles r ON r.party_id=p.id AND r.role_key=\'customer\' WHERE p.email=:email AND p.archived_at IS NULL LIMIT 1');$q->execute(array(':email'=>$email));}}
-  $found=$q?$q->fetchColumn():false;if($found)return(int)$found;
+  $found=false;
+  if($phone!==''){$q=$db->prepare("SELECT p.id FROM mda_parties p JOIN mda_party_roles r ON r.party_id=p.id AND r.role_key='customer' WHERE p.phone=:phone AND p.archived_at IS NULL LIMIT 1");$q->execute(array(':phone'=>$phone));$found=$q->fetchColumn();}
+  if(!$found&&$email!==''){$q=$db->prepare("SELECT p.id FROM mda_parties p JOIN mda_party_roles r ON r.party_id=p.id AND r.role_key='customer' WHERE p.email=:email AND p.archived_at IS NULL LIMIT 1");$q->execute(array(':email'=>$email));$found=$q->fetchColumn();}
+  if($found)return(int)$found;
   if($name==='')$name='مشتری سفارش '.$orderId;
   $code='WC-'.str_pad((string)$orderId,10,'0',STR_PAD_LEFT);$now=gmdate('Y-m-d H:i:s');
   $insert=$db->prepare('INSERT INTO mda_parties (party_code,display_name,phone,email,is_customer,created_at,updated_at) VALUES (:code,:name,:phone,:email,1,:now,:now)');
