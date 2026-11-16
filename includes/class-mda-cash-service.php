@@ -12,7 +12,7 @@ final class MDA_Cash_Service {
  }
  public static function record(string $type,int $amount,int $cashAccountId,int $contraAccountId,int $destinationAccountId,string $currency,string $method,string $key,string $date,string $description,string $reference=''):array {
   $currency=strtoupper($currency);$description=trim($description);$reference=trim($reference);
-  if(!in_array($type,array('receipt','payment','transfer'),true)||$amount<1||$cashAccountId<1||!in_array($currency,array('IRR','IRT'),true)||!in_array($method,array('cash','bank','pos','transfer','cheque'),true)||strlen($key)<12||strlen($key)>191||$description===''||strlen($description)>500||strlen($reference)>120)throw new InvalidArgumentException('اطلاعات تراکنش صندوق/بانک معتبر نیست.');
+  if(!in_array($type,array('receipt','payment','transfer'),true)||$amount<1||$cashAccountId<1||!in_array($currency,array('IRR','IRT'),true)||!in_array($method,array('cash','bank','pos','transfer'),true)||strlen($key)<12||strlen($key)>191||$description===''||strlen($description)>500||strlen($reference)>120)throw new InvalidArgumentException('اطلاعات تراکنش صندوق/بانک معتبر نیست.');
   if($type==='transfer'){if($destinationAccountId<1||$destinationAccountId===$cashAccountId||$contraAccountId!==0||$method!=='transfer')throw new InvalidArgumentException('برای انتقال، دو حساب نقدی متفاوت و روش انتقال انتخاب کنید.');}
   else{if($contraAccountId<1||$destinationAccountId!==0)throw new InvalidArgumentException('حساب مقابل تراکنش انتخاب نشده است.');}
   $parsed=DateTimeImmutable::createFromFormat('!Y-m-d',$date);if(!$parsed||$parsed->format('Y-m-d')!==$date)throw new InvalidArgumentException('تاریخ تراکنش معتبر نیست.');
