@@ -395,7 +395,7 @@ final class MDA_Admin {
   try{$type=sanitize_key(wp_unslash($_POST['transaction_type']??''));$amount=filter_var((string)($_POST['amount_minor']??''),FILTER_VALIDATE_INT);if(false===$amount||$amount<1)throw new InvalidArgumentException('مبلغ تراکنش باید عدد صحیح مثبت باشد.');
    $key=sanitize_text_field(wp_unslash($_POST['request_key']??''));$date=sanitize_text_field(wp_unslash($_POST['transaction_date']??''));$currency=sanitize_text_field(wp_unslash($_POST['currency_code']??'IRR'));$method=sanitize_key(wp_unslash($_POST['payment_method']??'cash'));
    $description=sanitize_text_field(wp_unslash($_POST['description']??''));$reference=sanitize_text_field(wp_unslash($_POST['reference_number']??''));
-   $result=MDA_Cash_Service::record($type,(int)$amount,absint($_POST['cash_account_id']??0),absint($_POST['contra_account_id']??0),absint($_POST['destination_cash_account_id']??0),$currency,$method,$key,$date,$description,$reference);
+   $contraId=$type==='receipt'?absint($_POST['income_account_id']??0):($type==='payment'?absint($_POST['expense_account_id']??0):0);$result=MDA_Cash_Service::record($type,(int)$amount,absint($_POST['cash_account_id']??0),$contraId,absint($_POST['destination_cash_account_id']??0),$currency,$method,$key,$date,$description,$reference);
    $url=add_query_arg(array('page'=>'mda-cashbook','mda_notice'=>$result['duplicate']?'cash_duplicate':'cash_recorded'),admin_url('admin.php'));
   }catch(Throwable $e){$url=add_query_arg(array('page'=>'mda-cashbook','mda_error'=>rawurlencode($e->getMessage())),admin_url('admin.php'));}
   wp_safe_redirect($url);exit;
