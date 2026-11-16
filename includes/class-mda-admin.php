@@ -19,6 +19,11 @@ final class MDA_Admin {
   add_action('admin_post_mda_run_woocommerce_reconciliation',array(__CLASS__,'run_woocommerce_reconciliation'));
   add_action('admin_post_mda_run_woocommerce_stock_sync',array(__CLASS__,'run_woocommerce_stock_sync'));
   add_action('admin_post_mda_record_cash_transaction',array(__CLASS__,'record_cash_transaction'));
+  add_action('admin_post_mda_import_bank_statement',array(__CLASS__,'import_bank_statement'));
+  add_action('admin_post_mda_match_bank_statement_line',array(__CLASS__,'match_bank_statement_line'));
+  add_action('admin_post_mda_unmatch_bank_statement_line',array(__CLASS__,'unmatch_bank_statement_line'));
+  add_action('admin_post_mda_ignore_bank_statement_line',array(__CLASS__,'ignore_bank_statement_line'));
+  add_action('admin_post_mda_unignore_bank_statement_line',array(__CLASS__,'unignore_bank_statement_line'));
  }
 
  public static function menu(): void {
@@ -33,6 +38,7 @@ final class MDA_Admin {
   add_submenu_page('mda-accounting','همگام‌سازی موجودی ووکامرس','همگام‌سازی موجودی',MDA_Capabilities::MANAGE,'mda-stock-sync',array(__CLASS__,'render_stock_sync'));
   add_submenu_page('mda-accounting','گزارش‌های مالی','گزارش‌های مالی',MDA_Capabilities::MANAGE,'mda-reports',array(__CLASS__,'render_reports'));
   add_submenu_page('mda-accounting','صندوق، بانک و هزینه‌ها','صندوق و بانک',MDA_Capabilities::MANAGE,'mda-cashbook',array(__CLASS__,'render_cashbook'));
+  add_submenu_page('mda-accounting','مغایرت‌گیری بانکی','مغایرت‌گیری بانکی',MDA_Capabilities::MANAGE,'mda-bank-reconciliation',array(__CLASS__,'render_bank_reconciliation'));
  }
 
  public static function body_class(string $classes): string {
@@ -400,6 +406,63 @@ final class MDA_Admin {
   }catch(Throwable $e){$url=add_query_arg(array('page'=>'mda-cashbook','mda_error'=>rawurlencode($e->getMessage())),admin_url('admin.php'));}
   wp_safe_redirect($url);exit;
  }
+ public static function import_bank_statement(): void {
+  self::guard();check_admin_referer('mda_import_bank_statement');
+  try{$account=absint($_POST['bank_account_id']??0);$currency=sanitize_text_field(wp_unslash($_POST['currency_code']??'IRR'));$reference=sanitize_text_field(wp_unslash($_POST['statement_reference']??''));$opening=filter_var((string)($_POST['opening_balance_minor']??''),FILTER_VALIDATE_INT);$closing=filter_var((string)($_POST['closing_balance_minor']??''),FILTER_VALIDATE_INT);if(false===$opening||false===$closing)throw new InvalidArgumentException('مانده اول و پایان صورت‌حساب باید عدد صحیح باشند.');$csv=(string)wp_unslash($_POST['statement_csv']??'');$key=sanitize_text_field(wp_unslash($_POST['request_key']??''));$result=MDA_Bank_Reconciliation_Service::import_csv($account,$currency,$reference,(int)$opening,(int)$closing,$csv,$key);$url=add_query_arg(array('page'=>'mda-bank-reconciliation','import_id'=>$result['import_id'],'mda_notice'=>$result['duplicate']?'bank_statement_duplicate':'bank_statement_imported'),admin_url('admin.php'));}
+  catch(Throwable $e){$url=add_query_arg(array('page'=>'mda-bank-reconciliation','mda_error'=>rawurlencode($e->getMessage())),admin_url('admin.php'));}wp_safe_redirect($url);exit;
+ }
+ public static function match_bank_statement_line(): void {
+  self::guard();$line=absint($_POST['line_id']??0);$import=absint($_POST['import_id']??0);check_admin_referer('mda_match_bank_statement_line_'.$line);
+  try{$journal=absint($_POST['journal_entry_id']??0);MDA_Bank_Reconciliation_Service::match($line,$journal);$notice='bank_line_matched';}
+  catch(Throwable $e){$url=add_query_arg(array('page'=>'mda-bank-reconciliation','import_id'=>$import,'line_id'=>$line,'mda_error'=>rawurlencode($e->getMessage())),admin_url('admin.php'));wp_safe_redirect($url);exit;}
+  wp_safe_redirect(add_query_arg(array('page'=>'mda-bank-reconciliation','import_id'=>$import,'mda_notice'=>$notice),admin_url('admin.php')));exit;
+ }
+ public static function unmatch_bank_statement_line(): void {
+  self::guard();$line=absint($_POST['line_id']??0);$import=absint($_POST['import_id']??0);check_admin_referer('mda_unmatch_bank_statement_line_'.$line);
+  try{MDA_Bank_Reconciliation_Service::unmatch($line);$notice='bank_line_unmatched';}
+  catch(Throwable $e){$url=add_query_arg(array('page'=>'mda-bank-reconciliation','import_id'=>$import,'mda_error'=>rawurlencode($e->getMessage())),admin_url('admin.php'));wp_safe_redirect($url);exit;}
+  wp_safe_redirect(add_query_arg(array('page'=>'mda-bank-reconciliation','import_id'=>$import,'mda_notice'=>$notice),admin_url('admin.php')));exit;
+ }
+ public static function ignore_bank_statement_line(): void {
+  self::guard();$line=absint($_POST['line_id']??0);$import=absint($_POST['import_id']??0);check_admin_referer('mda_ignore_bank_statement_line_'.$line);
+  try{MDA_Bank_Reconciliation_Service::ignore($line);$notice='bank_line_ignored';}
+  catch(Throwable $e){$url=add_query_arg(array('page'=>'mda-bank-reconciliation','import_id'=>$import,'mda_error'=>rawurlencode($e->getMessage())),admin_url('admin.php'));wp_safe_redirect($url);exit;}
+  wp_safe_redirect(add_query_arg(array('page'=>'mda-bank-reconciliation','import_id'=>$import,'mda_notice'=>$notice),admin_url('admin.php')));exit;
+ }
+ public static function unignore_bank_statement_line(): void {
+  self::guard();$line=absint($_POST['line_id']??0);$import=absint($_POST['import_id']??0);check_admin_referer('mda_unignore_bank_statement_line_'.$line);
+  try{MDA_Bank_Reconciliation_Service::unignore($line);$notice='bank_line_unignored';}
+  catch(Throwable $e){$url=add_query_arg(array('page'=>'mda-bank-reconciliation','import_id'=>$import,'mda_error'=>rawurlencode($e->getMessage())),admin_url('admin.php'));wp_safe_redirect($url);exit;}
+  wp_safe_redirect(add_query_arg(array('page'=>'mda-bank-reconciliation','import_id'=>$import,'mda_notice'=>$notice),admin_url('admin.php')));exit;
+ }
+ public static function render_bank_reconciliation(): void {
+  self::guard();if(!MDA_Database::is_available()){echo '<div class="wrap" dir="rtl"><h1>مغایرت‌گیری بانکی</h1><div class="notice notice-error"><p>PDO_SQLite فعال نیست.</p></div></div>';return;}
+  $accounts=MDA_Cash_Service::cash_accounts();$imports=MDA_Bank_Reconciliation_Service::imports(50);$importId=absint($_GET['import_id']??0);$selected=$importId?MDA_Bank_Reconciliation_Service::get_import($importId):null;$summary=$selected?MDA_Bank_Reconciliation_Service::summary($importId):null;$lines=$selected?MDA_Bank_Reconciliation_Service::lines($importId,500):array();$lineId=absint($_GET['line_id']??0);$selectedLine=null;$candidates=array();
+  foreach($lines as $line){if((int)$line['id']===$lineId){$selectedLine=$line;break;}}
+  if($selectedLine&&(!in_array($selectedLine['current_action'],array('matched','ignored'),true)))$candidates=MDA_Bank_Reconciliation_Service::candidates($lineId,30);
+  $fmt=static function($v):string{return number_format((int)$v,0,'.',',');};
+  ?>
+  <div class="wrap" dir="rtl"><h1>مغایرت‌گیری بانکی</h1><p>صورت‌حساب را به‌صورت CSV وارد کنید و هر ردیف را با گردش متناظر دفتر کل تطبیق دهید. هیچ تراکنش بانکی یا سند حسابداری به‌صورت خودکار ساخته یا حذف نمی‌شود.</p><?php self::notices(); ?>
+  <div class="mda-card" style="margin:16px 0"><h2>ورود صورت‌حساب</h2><form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>"><input type="hidden" name="action" value="mda_import_bank_statement"><?php wp_nonce_field('mda_import_bank_statement'); ?><input type="hidden" name="request_key" value="<?php echo esc_attr(wp_generate_uuid4()); ?>">
+  <div class="mda-grid"><label>حساب بانکی<select name="bank_account_id" required><option value="">انتخاب حساب</option><?php foreach($accounts as $a): ?><option value="<?php echo (int)$a['id']; ?>"><?php echo esc_html($a['account_code'].' — '.$a['account_name']); ?></option><?php endforeach; ?></select></label>
+  <label>ارز<select name="currency_code"><option value="IRR">ریال (IRR)</option><option value="IRT">تومان (IRT)</option></select></label>
+  <label>شماره صورت‌حساب / دوره<input type="text" name="statement_reference" maxlength="120" required></label>
+  <label>مانده اول دوره (عدد صحیح)<input type="number" name="opening_balance_minor" required></label><label>مانده پایان دوره (عدد صحیح)<input type="number" name="closing_balance_minor" required></label></div>
+  <label>محتوای CSV <textarea name="statement_csv" rows="7" required style="width:100%;font-family:monospace" placeholder="date,direction,amount,reference,description&#10;2026-11-16,credit,100000,REF-001,واریز مشتری&#10;2026-11-16,debit,25000,REF-002,کارمزد"></textarea></label>
+  <p class="description">ترتیب ستون‌ها: تاریخ میلادی YYYY-MM-DD، نوع credit/debit یا واریز/برداشت، مبلغ صحیح در واحد خرد، شماره مرجع و شرح. جداکننده ویرگول، نقطه‌ویرگول یا Tab پشتیبانی می‌شود. مانده پایان باید برابر مانده اول + واریزها − برداشت‌ها باشد.</p>
+  <button class="button button-primary" type="submit" <?php disabled(!$accounts); ?>>وارد کردن و ذخیره در SQLite</button></form></div>
+  <?php if($selected&&$summary): ?><div class="mda-card" style="margin:16px 0"><h2>صورت‌حساب <?php echo esc_html($selected['statement_reference']); ?></h2><p><?php echo esc_html($selected['account_code'].' — '.$selected['account_name']); ?> | <?php echo esc_html($selected['currency_code']); ?> | <?php echo esc_html($selected['period_start'].' تا '.$selected['period_end']); ?></p>
+  <div class="mda-grid"><div class="mda-stat"><span>کل ردیف‌ها</span><strong><?php echo (int)$summary['total_lines']; ?></strong></div><div class="mda-stat"><span>تطبیق‌شده</span><strong><?php echo (int)$summary['matched_lines']; ?></strong></div><div class="mda-stat"><span>تطبیق‌نشده</span><strong><?php echo (int)$summary['unmatched_lines']; ?></strong></div><div class="mda-stat"><span>نادیده‌گرفته‌شده</span><strong><?php echo (int)$summary['ignored_lines']; ?></strong></div></div>
+  <?php if($selectedLine): ?><div class="mda-card" style="margin:16px 0"><h3>تطبیق ردیف <?php echo (int)$selectedLine['line_number']; ?></h3><p><?php echo esc_html($selectedLine['transaction_date'].' | '.($selectedLine['direction']==='credit'?'واریز':'برداشت').' | '.$fmt($selectedLine['amount_minor']).' '.$selected['currency_code'].' | '.$selectedLine['description']); ?></p>
+  <?php if($candidates): ?><form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>"><input type="hidden" name="action" value="mda_match_bank_statement_line"><input type="hidden" name="line_id" value="<?php echo (int)$lineId; ?>"><input type="hidden" name="import_id" value="<?php echo (int)$importId; ?>"><?php wp_nonce_field('mda_match_bank_statement_line_'.$lineId); ?><label>سند متناظر دفتر کل<select name="journal_entry_id" required><option value="">انتخاب سند</option><?php foreach($candidates as $candidate): ?><option value="<?php echo (int)$candidate['journal_entry_id']; ?>"><?php echo esc_html($candidate['document_number'].' | '.$candidate['document_date'].' | '.$fmt($candidate['debit_minor']?:$candidate['credit_minor']).' | '.($candidate['memo']?:$candidate['document_description'])); ?></option><?php endforeach; ?></select></label> <button class="button button-primary">ثبت تطبیق</button></form><?php else: ?><p>سند دقیق با همان حساب، ارز، مبلغ و جهت در بازه سه‌روزه پیدا نشد؛ ابتدا سند دفتر کل را بررسی کنید.</p><?php endif; ?></div><?php endif; ?>
+  <h3>ردیف‌های صورت‌حساب</h3><table class="widefat striped"><thead><tr><th>#</th><th>تاریخ</th><th>نوع</th><th>مبلغ</th><th>مرجع</th><th>شرح</th><th>وضعیت</th><th>عملیات</th></tr></thead><tbody>
+  <?php foreach($lines as $row): $state=$row['current_action']?:'unmatched'; ?><tr><td><?php echo (int)$row['line_number']; ?></td><td><?php echo esc_html($row['transaction_date']); ?></td><td><?php echo esc_html($row['direction']==='credit'?'واریز':'برداشت'); ?></td><td><?php echo esc_html($fmt($row['amount_minor'])); ?></td><td><?php echo esc_html($row['reference_number']??'—'); ?></td><td><?php echo esc_html($row['description']); ?></td><td><?php echo esc_html(array('matched'=>'تطبیق‌شده','ignored'=>'نادیده‌گرفته‌شده','unmatched'=>'تطبیق‌نشده','unignored'=>'تطبیق‌نشده')[$state]??'تطبیق‌نشده'); ?><?php if($state==='matched'&&$row['document_number']): ?> (<?php echo esc_html($row['document_number']); ?>)<?php endif; ?></td><td>
+  <?php if($state==='matched'): ?><form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>"><input type="hidden" name="action" value="mda_unmatch_bank_statement_line"><input type="hidden" name="line_id" value="<?php echo (int)$row['id']; ?>"><input type="hidden" name="import_id" value="<?php echo (int)$importId; ?>"><?php wp_nonce_field('mda_unmatch_bank_statement_line_'.(int)$row['id']); ?><button class="button">لغو تطبیق</button></form>
+  <?php elseif($state==='ignored'): ?><form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>"><input type="hidden" name="action" value="mda_unignore_bank_statement_line"><input type="hidden" name="line_id" value="<?php echo (int)$row['id']; ?>"><input type="hidden" name="import_id" value="<?php echo (int)$importId; ?>"><?php wp_nonce_field('mda_unignore_bank_statement_line_'.(int)$row['id']); ?><button class="button">بازگرداندن</button></form>
+  <?php else: ?><a class="button" href="<?php echo esc_url(add_query_arg(array('page'=>'mda-bank-reconciliation','import_id'=>$importId,'line_id'=>(int)$row['id']),admin_url('admin.php'))); ?>">پیشنهاد تطبیق</a> <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" style="display:inline"><input type="hidden" name="action" value="mda_ignore_bank_statement_line"><input type="hidden" name="line_id" value="<?php echo (int)$row['id']; ?>"><input type="hidden" name="import_id" value="<?php echo (int)$importId; ?>"><?php wp_nonce_field('mda_ignore_bank_statement_line_'.(int)$row['id']); ?><button class="button">نادیده گرفتن</button></form><?php endif; ?></td></tr><?php endforeach; ?></tbody></table></div><?php endif; ?>
+  <h2 class="mda-section-title">صورت‌حساب‌های واردشده</h2><table class="widefat striped"><thead><tr><th>شماره</th><th>حساب</th><th>ارز</th><th>بازه</th><th>ردیف‌ها</th><th>تطبیق‌شده</th><th>نادیده</th><th>عملیات</th></tr></thead><tbody><?php foreach($imports as $item): ?><tr><td><?php echo esc_html($item['statement_reference']); ?></td><td><?php echo esc_html($item['account_code'].' — '.$item['account_name']); ?></td><td><?php echo esc_html($item['currency_code']); ?></td><td><?php echo esc_html($item['period_start'].' تا '.$item['period_end']); ?></td><td><?php echo (int)$item['total_lines']; ?></td><td><?php echo (int)$item['matched_lines']; ?></td><td><?php echo (int)$item['ignored_lines']; ?></td><td><a class="button" href="<?php echo esc_url(add_query_arg(array('page'=>'mda-bank-reconciliation','import_id'=>(int)$item['id']),admin_url('admin.php'))); ?>">مشاهده / ادامه</a></td></tr><?php endforeach; ?><?php if(!$imports): ?><tr><td colspan="8">صورت‌حسابی وارد نشده است.</td></tr><?php endif; ?></tbody></table></div>
+  <?php
+ }
  public static function render_cashbook(): void {
   self::guard();if(!MDA_Database::is_available()){echo '<div class="wrap" dir="rtl"><h1>صندوق و بانک</h1><div class="notice notice-error"><p>PDO_SQLite فعال نیست.</p></div></div>';return;}
   $cash=MDA_Cash_Service::cash_accounts();$income=MDA_Cash_Service::contra_accounts('income');$expense=MDA_Cash_Service::contra_accounts('expense');$balances=MDA_Cash_Service::balances();$transactions=MDA_Cash_Service::transactions(100);$fmt=static function($v):string{return number_format((int)$v,0,'.',',');};
@@ -507,7 +570,7 @@ final class MDA_Admin {
 
  private static function notices(): void {
   if(!empty($_GET['mda_notice'])) {
-   $messages=array('party_saved'=>'طرف‌حساب ذخیره شد.','party_archived'=>'طرف‌حساب بایگانی شد.','account_saved'=>'حساب ذخیره شد.','purchase_draft_created'=>'پیش‌نویس خرید ایجاد شد.','purchase_posted'=>'فاکتور قطعی و موجودی ثبت شد.','purchase_already_posted'=>'این فاکتور قبلاً قطعی شده است.','payment_recorded'=>'پرداخت مرحله‌ای ثبت شد.','payment_duplicate'=>'این پرداخت قبلاً ثبت شده است.','purchase_return_posted'=>'مرجوعی و سند اصلاحی ثبت شد.','sales_receipt_recorded'=>'دریافت مشتری و سند حسابداری ثبت شد.','sales_receipt_duplicate'=>'این دریافت قبلاً ثبت شده است.','sales_return_posted'=>'مرجوعی فروش و سند اصلاحی ثبت شد.','sales_return_duplicate'=>'این مرجوعی قبلاً ثبت شده است.','sales_refund_posted'=>'استرداد وجه و سند حسابداری ثبت شد.','sales_refund_duplicate'=>'این استرداد قبلاً ثبت شده است.','reconciliation_run'=>'دسته تطبیق سفارش‌ها اجرا شد.','stock_sync_run'=>'دسته همگام‌سازی موجودی اجرا شد.','cash_recorded'=>'تراکنش صندوق/بانک و سند حسابداری ثبت شد.','cash_duplicate'=>'این تراکنش قبلاً ثبت شده است.');
+   $messages=array('party_saved'=>'طرف‌حساب ذخیره شد.','party_archived'=>'طرف‌حساب بایگانی شد.','account_saved'=>'حساب ذخیره شد.','purchase_draft_created'=>'پیش‌نویس خرید ایجاد شد.','purchase_posted'=>'فاکتور قطعی و موجودی ثبت شد.','purchase_already_posted'=>'این فاکتور قبلاً قطعی شده است.','payment_recorded'=>'پرداخت مرحله‌ای ثبت شد.','payment_duplicate'=>'این پرداخت قبلاً ثبت شده است.','purchase_return_posted'=>'مرجوعی و سند اصلاحی ثبت شد.','sales_receipt_recorded'=>'دریافت مشتری و سند حسابداری ثبت شد.','sales_receipt_duplicate'=>'این دریافت قبلاً ثبت شده است.','sales_return_posted'=>'مرجوعی فروش و سند اصلاحی ثبت شد.','sales_return_duplicate'=>'این مرجوعی قبلاً ثبت شده است.','sales_refund_posted'=>'استرداد وجه و سند حسابداری ثبت شد.','sales_refund_duplicate'=>'این استرداد قبلاً ثبت شده است.','reconciliation_run'=>'دسته تطبیق سفارش‌ها اجرا شد.','stock_sync_run'=>'دسته همگام‌سازی موجودی اجرا شد.','cash_recorded'=>'تراکنش صندوق/بانک و سند حسابداری ثبت شد.','cash_duplicate'=>'این تراکنش قبلاً ثبت شده است.','bank_statement_imported'=>'صورت‌حساب بانکی در SQLite وارد شد.','bank_statement_duplicate'=>'این صورت‌حساب قبلاً وارد شده است.','bank_line_matched'=>'ردیف صورت‌حساب با سند دفتر کل تطبیق داده شد.','bank_line_unmatched'=>'تطبیق ردیف لغو شد.','bank_line_ignored'=>'ردیف صورت‌حساب نادیده گرفته شد.','bank_line_unignored'=>'ردیف دوباره فعال شد.');
    $key=sanitize_key(wp_unslash($_GET['mda_notice']));$message=$messages[$key]??'عملیات با موفقیت انجام شد.';
    echo '<div class="notice notice-success"><p>'.esc_html($message).'</p></div>';
   }
