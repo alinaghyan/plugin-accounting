@@ -18,7 +18,7 @@ if ( class_exists( 'MaliDev_Client', false ) ) {
 }
 
 final class MaliDev_Client {
-	const VERSION = '1.5.2';
+	const VERSION = '1.5.3';
 	const SERVER  = 'https://malidev.ir';
 	// Ed25519 public key (base64) from malidev.ir → لایسنس MaliDev → تنظیمات.
 	const PUBLIC_KEY = 'jNwGZS+JJCxRU7py5V1QM6L8+9LWC4OWYDB9Zwa81cg=';
@@ -140,8 +140,7 @@ final class MaliDev_Client {
 		$css = '';
 		$upd = self::cached_updates();
 		foreach ( self::$products as $slug => $p ) {
-			$ic  = self::icons( (array) ( $upd[ $slug ] ?? array() ) );
-			$url = $ic['svg'] ?? ( $ic['2x'] ?? ( $ic['1x'] ?? '' ) );
+			$url = self::icon_url( $slug, (array) ( $upd[ $slug ] ?? array() ) );
 			if ( 'plugin' !== $p['type'] || ! $url ) {
 				continue;
 			}
@@ -159,7 +158,6 @@ final class MaliDev_Client {
 		$out = array();
 		foreach ( self::$products as $slug => $p ) {
 			$u     = (array) ( $upd[ $slug ] ?? array() );
-			$ic    = self::icons( $u );
 			$new   = (string) ( $u['version'] ?? '' );
 			$out[] = array(
 				'slug'    => $slug,
@@ -167,7 +165,7 @@ final class MaliDev_Client {
 				'type'    => $p['type'],
 				'version' => (string) $p['version'],
 				'update'  => ( $new && version_compare( $new, (string) $p['version'], '>' ) ) ? $new : '',
-				'icon'    => $ic['svg'] ?? ( $ic['2x'] ?? ( $ic['1x'] ?? '' ) ),
+				'icon'    => self::icon_url( $slug, $u ),
 				'license' => self::status( $slug ),
 			);
 		}
@@ -354,6 +352,8 @@ final class MaliDev_Client {
 				'name'    => '',
 				// true = premium features need an active license; false = everything works, only updates/support stop.
 				'premium_requires_license' => false,
+				// Optional local icon (URL inside this site's wp-content), used until the server sends one.
+				'icon'    => '',
 			)
 		);
 		$a['slug'] = sanitize_key( $a['slug'] );
@@ -362,6 +362,7 @@ final class MaliDev_Client {
 		}
 		$a['basename'] = 'theme' === $a['type'] ? ( $a['stylesheet'] ?? $a['slug'] ) : plugin_basename( $a['file'] );
 		$a['name']     = $a['name'] ? $a['name'] : $a['slug'];
+		$a['icon']     = self::local_icon( (string) $a['icon'] );
 
 		self::$products[ $a['slug'] ] = $a;
 	}
@@ -979,6 +980,19 @@ final class MaliDev_Client {
 		return $out;
 	}
 
+	/** Bundled icon given at registration: only URLs under this site's wp-content are accepted. */
+	private static function local_icon( $url ) {
+		$url = esc_url_raw( $url );
+		return ( $url && 0 === strpos( set_url_scheme( $url ), set_url_scheme( content_url( '/' ) ) ) ) ? $url : '';
+	}
+
+	/** Icon to show for a product: server icon (cached update-check) first, then the bundled one. */
+	private static function icon_url( $slug, $u = null ) {
+		$ic  = self::icons( null === $u ? (array) ( self::cached_updates()[ $slug ] ?? array() ) : (array) $u );
+		$url = $ic['svg'] ?? ( $ic['2x'] ?? ( $ic['1x'] ?? '' ) );
+		return $url ? $url : (string) ( self::$products[ $slug ]['icon'] ?? '' );
+	}
+
 	/** Product icons from the server (only URLs on the server's own host are accepted). */
 	private static function icons( $u ) {
 		$host = wp_parse_url( self::server(), PHP_URL_HOST );
@@ -1258,8 +1272,7 @@ final class MaliDev_Client {
 			$tok    = self::payload( $s );
 			$latest = $updates[ $slug ]['version'] ?? '';
 			$has_up = $latest && version_compare( $latest, $p['version'], '>' );
-			$ic   = self::icons( (array) ( self::cached_updates()[ $slug ] ?? array() ) );
-			$icon = $ic['svg'] ?? ( $ic['2x'] ?? ( $ic['1x'] ?? '' ) );
+			$icon = self::icon_url( $slug );
 			$note = '';
 			if ( ! empty( $p['adopted'] ) ) {
 				$note = '<br><small style="color:#b26200">' . esc_html( empty( $p['active'] ) ? __( 'غیرفعال در سایت · نسخه‌ی قدیمی؛ به‌روزرسانی کنید', 'malidev-client' ) : __( 'نسخه‌ی قدیمی؛ برای اتصال کامل به‌روزرسانی کنید', 'malidev-client' ) ) . '</small>';

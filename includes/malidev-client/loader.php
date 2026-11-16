@@ -4,7 +4,7 @@
  *
  * Bundle this whole folder inside each product, then in the main file:
  *   require_once __DIR__ . '/includes/malidev-client/loader.php';
- *   malidev_client_register( array( 'slug' => 'plugin-factor-woocommerce', 'type' => 'plugin', 'file' => __FILE__, 'version' => '1.2.0', 'name' => 'استودیو فاکتور' ) );
+ *   malidev_client_register( array( 'slug' => 'plugin-factor-woocommerce', 'type' => 'plugin', 'file' => __FILE__, 'version' => '1.2.0', 'name' => 'استودیو فاکتور', 'icon' => plugins_url( 'assets/icon.svg', __FILE__ ) ) );
  *
  * When several products bundle the SDK, only the newest copy is loaded.
  *
@@ -13,7 +13,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-$GLOBALS['malidev_client_versions']['1.5.2'] = __DIR__ . '/class-malidev-client.php';
+$GLOBALS['malidev_client_versions']['1.5.3'] = __DIR__ . '/class-malidev-client.php';
 
 if ( ! function_exists( 'malidev_client_register' ) ) {
 	/**
