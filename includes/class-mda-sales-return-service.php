@@ -111,5 +111,12 @@ final class MDA_Sales_Refund_Service {
    return array('refund_id'=>$id,'document_id'=>$journalId,'duplicate'=>false);
   });
  }
+ public static function summary(int $returnId):array {
+  $db=MDA_Database::connection();$q=$db->prepare('SELECT id,total_minor,party_id FROM mda_sales_returns WHERE id=:id');$q->execute(array(':id'=>$returnId));$ret=$q->fetch();if(!$ret)throw new RuntimeException('سند مرجوعی پیدا نشد.');
+  $q=$db->prepare('SELECT COALESCE(SUM(amount_minor),0) FROM mda_sales_refunds WHERE sales_return_id=:id');$q->execute(array(':id'=>$returnId));$refunded=(int)$q->fetchColumn();
+  $q=$db->prepare("SELECT id FROM mda_accounts WHERE account_code='1200' AND account_type='asset' AND is_active=1 AND archived_at IS NULL AND is_control=1");$q->execute();$arId=(int)$q->fetchColumn();$credit=0;
+  if($arId){$q=$db->prepare('SELECT COALESCE(SUM(credit_minor),0)-COALESCE(SUM(debit_minor),0) FROM mda_journal_entries WHERE account_id=:account AND party_id=:party');$q->execute(array(':account'=>$arId,':party'=>$ret['party_id']));$credit=max(0,(int)$q->fetchColumn());}
+  $remaining=(int)$ret['total_minor']-$refunded;return array('return_total_minor'=>(int)$ret['total_minor'],'refunded_minor'=>$refunded,'remaining_minor'=>$remaining,'customer_credit_minor'=>$credit,'available_minor'=>min($remaining,$credit));
+ }
  public static function refunds(int $returnId):array {$q=MDA_Database::connection()->prepare('SELECT f.*,a.account_code,a.account_name,d.document_number AS accounting_document_number FROM mda_sales_refunds f JOIN mda_accounts a ON a.id=f.cash_account_id JOIN mda_documents d ON d.id=f.accounting_document_id WHERE f.sales_return_id=:id ORDER BY f.id DESC');$q->execute(array(':id'=>$returnId));return$q->fetchAll();}
 }
