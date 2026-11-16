@@ -14,6 +14,8 @@ final class MDA_Plugin {
 	public function init(): void {
 		load_plugin_textdomain( 'malidev-accounting', false, dirname( plugin_basename( MDA_FILE ) ) . '/languages' );
 		MDA_Admin::init();
+		MDA_Phone_Sales_Admin::init();
+		MDA_WooCommerce::init();
 
 		/**
 		 * نقطه توسعه عمومی افزونه؛ تا زمان تثبیت قرارداد API، هوک‌های مالی منتشر نمی‌شوند.
