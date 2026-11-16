@@ -11,7 +11,7 @@ final class MDA_Reconciliation_Service {
   $limit=max(1,min(self::PAGE_SIZE,$limit));$db=MDA_Database::connection();$pageKey='wc_reconcile_page_'.self::LOOKBACK_DAYS;
   $q=$db->prepare('SELECT setting_value FROM mda_settings WHERE setting_key=:key');$q->execute(array(':key'=>$pageKey));$page=max(1,(int)$q->fetchColumn());
   $windowStart=gmdate('Y-m-d',time()-(self::LOOKBACK_DAYS*86400));$started=gmdate('Y-m-d H:i:s');$counts=array('scanned'=>0,'already_posted'=>0,'queued'=>0,'pending'=>0,'failed'=>0,'skipped'=>0);$errors=array();
-  $result=wc_get_orders(array('status'=>array('processing','completed'),'limit'=>$limit,'page'=>$page,'paginate'=>true,'orderby'=>'ID','order'=>'ASC','date_created'=>'>'.$windowStart,'return'=>'objects'));
+  $result=wc_get_orders(array('status'=>class_exists('MDA_Order_Statuses')?MDA_Order_Statuses::sale_statuses():array('processing','completed'),'limit'=>$limit,'page'=>$page,'paginate'=>true,'orderby'=>'ID','order'=>'ASC','date_created'=>'>'.$windowStart,'return'=>'objects'));
   if(!is_object($result)||!isset($result->orders))throw new RuntimeException('نتیجه جست‌وجوی سفارش‌های WooCommerce قابل خواندن نیست.');
   $orders=(array)$result->orders;$totalPages=max(0,(int)($result->max_num_pages??0));
   foreach($orders as $order){

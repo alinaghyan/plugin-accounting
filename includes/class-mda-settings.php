@@ -25,6 +25,7 @@ final class MDA_Settings {
 			'moodian_memory_id'     => '',
 			'default_lead_time'     => 3,
 			'cheque_reminder_days'  => 3,
+			'online_warehouse_id'   => 0,
 		);
 	}
 
@@ -50,6 +51,8 @@ final class MDA_Settings {
 
 	public static function save( array $input ): void {
 		$clean = self::defaults();
+		// Keys managed on other screens survive a save of the general form.
+		$clean['online_warehouse_id'] = (int) ( self::all()['online_warehouse_id'] ?? 0 );
 		foreach ( array( 'backup_enabled', 'jalali_dates', 'moodian_enabled' ) as $flag ) {
 			$clean[ $flag ] = empty( $input[ $flag ] ) ? 0 : 1;
 		}
@@ -65,6 +68,37 @@ final class MDA_Settings {
 		MDA_Database::connection()->prepare( 'INSERT OR REPLACE INTO mda_settings (setting_key, setting_value, updated_at) VALUES (:k, :v, :now)' )
 			->execute( array( ':k' => self::KEY, ':v' => wp_json_encode( $clean ), ':now' => gmdate( 'Y-m-d H:i:s' ) ) );
 		self::$cache = $clean;
+	}
+
+	/** Stores one key without touching the others. */
+	public static function set( string $key, $value ): void {
+		$all         = self::all();
+		$all[ $key ] = $value;
+		MDA_Database::connection()->prepare( 'INSERT OR REPLACE INTO mda_settings (setting_key, setting_value, updated_at) VALUES (:k, :v, :now)' )
+			->execute( array( ':k' => self::KEY, ':v' => wp_json_encode( $all ), ':now' => gmdate( 'Y-m-d H:i:s' ) ) );
+		self::$cache = $all;
+	}
+
+	/**
+	 * Warehouse that website orders are issued from and that WooCommerce stock mirrors:
+	 * the chosen one while it is active, otherwise MAIN, otherwise the first active warehouse.
+	 */
+	public static function online_warehouse_id(): int {
+		try {
+			$db = MDA_Database::connection();
+			$id = (int) ( self::all()['online_warehouse_id'] ?? 0 );
+			if ( $id > 0 ) {
+				$q = $db->prepare( 'SELECT id FROM mda_warehouses WHERE id = :id AND is_active = 1' );
+				$q->execute( array( ':id' => $id ) );
+				if ( $q->fetchColumn() ) {
+					return $id;
+				}
+			}
+			$main = (int) $db->query( "SELECT id FROM mda_warehouses WHERE warehouse_code = 'MAIN' AND is_active = 1 LIMIT 1" )->fetchColumn();
+			return $main ?: (int) $db->query( 'SELECT id FROM mda_warehouses WHERE is_active = 1 ORDER BY id LIMIT 1' )->fetchColumn();
+		} catch ( Throwable $e ) {
+			return 0;
+		}
 	}
 
 	/**

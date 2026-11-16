@@ -13,7 +13,7 @@ final class MDA_Product_Grid_Service {
 	public const META_MESSAGE = '_mda_price_message';
 
 	/** Fields the grid can write besides price fields. */
-	public const FIELDS = array( 'name', 'sku', 'status', 'manage_stock', 'stock_qty', 'stock_status', 'featured', 'sale_from', 'sale_to', 'cats', 'tags', 'message' );
+	public const FIELDS = array( 'name', 'sku', 'status', 'manage_stock', 'stock_qty', 'stock_status', 'featured', 'sale_from', 'sale_to', 'cats', 'tags', 'message', 'supplier' );
 
 	/**
 	 * @param array<string,mixed> $changes
@@ -112,6 +112,11 @@ final class MDA_Product_Grid_Service {
 					}
 					$changed[] = $field;
 					break;
+				case 'supplier':
+					$pid = $product->is_type( 'variation' ) ? (int) $product->get_parent_id() : (int) $product->get_id();
+					MDA_Supplier_Service::save( $pid, absint( $value ) );
+					$changed[] = 'supplier';
+					break;
 				case 'message':
 					$msg = self::clean_message( (array) $value );
 					if ( $msg ) {
@@ -134,7 +139,7 @@ final class MDA_Product_Grid_Service {
 		if ( $from && $to && $from->getTimestamp() > $to->getTimestamp() ) {
 			throw new InvalidArgumentException( 'تاریخ شروع تخفیف بعد از تاریخ پایان است.' );
 		}
-		if ( $changed ) {
+		if ( array_diff( $changed, array( 'supplier' ) ) ) {
 			$product->save();
 		}
 		return $changed;
@@ -233,6 +238,9 @@ final class MDA_Product_Grid_Service {
 			}
 			if ( isset( $spec['message'] ) && is_array( $spec['message'] ) ) {
 				$c['message'] = $spec['message'];
+			}
+			if ( isset( $spec['supplier'] ) && '' !== (string) $spec['supplier'] ) {
+				$c['supplier'] = absint( $spec['supplier'] );
 			}
 		}
 		if ( ! empty( $spec['price'] ) && is_array( $spec['price'] ) ) {

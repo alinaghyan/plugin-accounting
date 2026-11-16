@@ -2,7 +2,7 @@
 /**
  * Plugin Name: MaliDev Accounting & ERP
  * Description: هسته حسابداری و مدیریت عملیات فروشگاه ووکامرس با پایگاه داده اختصاصی SQLite.
- * Version: 0.21.1
+ * Version: 0.22.0
  * Requires at least: 6.3
  * Requires PHP: 8.1
  * Requires Plugins: woocommerce
@@ -16,7 +16,7 @@
  * Domain Path: /languages
  */
 defined( 'ABSPATH' ) || exit;
-define( 'MDA_VERSION', '0.21.1' );
+define( 'MDA_VERSION', '0.22.0' );
 define( 'MDA_FILE', __FILE__ );
 define( 'MDA_PATH', plugin_dir_path( __FILE__ ) );
 define( 'MDA_URL', plugin_dir_url( __FILE__ ) );
@@ -71,6 +71,13 @@ require_once MDA_PATH . 'includes/class-mda-order-adjustment-service.php';
 require_once MDA_PATH . 'includes/class-mda-product-fields.php';
 require_once MDA_PATH . 'includes/class-mda-woocommerce.php';
 require_once MDA_PATH . 'includes/class-mda-phone-sales-admin.php';
+require_once MDA_PATH . 'includes/class-mda-help.php';
+require_once MDA_PATH . 'includes/class-mda-order-statuses.php';
+require_once MDA_PATH . 'includes/class-mda-warehouse-service.php';
+require_once MDA_PATH . 'includes/class-mda-warehouse-admin.php';
+require_once MDA_PATH . 'includes/class-mda-supplier-service.php';
+require_once MDA_PATH . 'includes/class-mda-manual-orders.php';
+require_once MDA_PATH . 'includes/class-mda-dashboard-service.php';
 require_once MDA_PATH . 'includes/class-mda-admin-shell.php';
 require_once MDA_PATH . 'includes/class-mda-admin.php';
 require_once MDA_PATH . 'includes/class-mda-admin-pages.php';
@@ -94,6 +101,10 @@ add_action( 'before_woocommerce_init', static function (): void {
 add_action('plugins_loaded',static function(): void {
  MDA_Installer::maybe_migrate();
  MDA_Admin_Shell::init();
+ MDA_Order_Statuses::init();
+ MDA_Warehouse_Admin::init();
+ MDA_Supplier_Service::init();
+ MDA_Manual_Orders::init();
  MDA_Admin_Pages::init();
  MDA_Price_Admin::init();
  MDA_Product_Grid::init();

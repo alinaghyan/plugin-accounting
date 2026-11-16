@@ -52,6 +52,53 @@ final class MDA_Product_Fields {
 			)
 		);
 		echo '</div>';
+		self::render_supplier( (int) $product_object->get_id() );
+	}
+
+	/** Internal supplier box: admin-only, never shown to customers. */
+	private static function render_supplier( int $product_id ): void {
+		if ( ! MDA_Database::is_available() ) {
+			return;
+		}
+		$cur       = $product_id ? MDA_Supplier_Service::get( $product_id ) : array( 'supplier_id' => 0, 'supplier_sku' => '', 'supplier_note' => '' );
+		$suppliers = array( '' => esc_html__( '— انتخاب نشده —', 'malidev-accounting' ) ) + MDA_Supplier_Service::suppliers();
+		echo '<div class="options_group mda-supplier-fields"><p class="form-field" style="margin:8px 0 0"><strong>' . esc_html__( 'تأمین‌کننده (فقط برای مدیر؛ مشتری نمی‌بیند)', 'malidev-accounting' ) . '</strong></p>';
+		woocommerce_wp_select(
+			array(
+				'id'          => 'mda_supplier_id',
+				'label'       => esc_html__( 'تأمین‌کننده', 'malidev-accounting' ),
+				'value'       => $cur['supplier_id'] ? (string) $cur['supplier_id'] : '',
+				'options'     => $suppliers,
+				'desc_tip'    => true,
+				'description' => esc_html__( 'از چه کسی این کالا را می‌خرید. با اولین فاکتور خرید خودکار پر می‌شود؛ تأمین‌کننده جدید را در «طرف‌حساب‌ها» تعریف کنید.', 'malidev-accounting' ),
+			)
+		);
+		woocommerce_wp_text_input(
+			array(
+				'id'                => 'mda_supplier_sku',
+				'label'             => esc_html__( 'کد کالا نزد تأمین‌کننده', 'malidev-accounting' ),
+				'value'             => $cur['supplier_sku'],
+				'custom_attributes' => array( 'maxlength' => '60', 'dir' => 'ltr' ),
+			)
+		);
+		woocommerce_wp_text_input(
+			array(
+				'id'                => 'mda_supplier_note',
+				'label'             => esc_html__( 'یادداشت داخلی', 'malidev-accounting' ),
+				'value'             => $cur['supplier_note'],
+				'placeholder'       => esc_html__( 'مثلاً: حداقل سفارش ۱۰ عدد، تحویل ۲ روزه', 'malidev-accounting' ),
+				'custom_attributes' => array( 'maxlength' => '200' ),
+			)
+		);
+		$last = $product_id ? MDA_Supplier_Service::last_purchases( $product_id, 3 ) : array();
+		if ( $last ) {
+			echo '<p class="form-field"><label>' . esc_html__( 'آخرین خریدها', 'malidev-accounting' ) . '</label><span>';
+			foreach ( $last as $l ) {
+				echo esc_html( $l['display_name'] . ' · ' . MDA_Jalali::format( $l['document_date'] ) . ' · ' . number_format_i18n( (int) $l['unit_cost_minor'] ) . ' ' . ( 'IRT' === $l['currency_code'] ? 'تومان' : 'ریال' ) ) . '<br>';
+			}
+			echo '</span></p>';
+		}
+		echo '</div>';
 	}
 
 	public static function save( WC_Product $product ): void {
@@ -81,7 +128,16 @@ final class MDA_Product_Fields {
 
 		if ( MDA_Database::is_available() ) {
 			try {
-				MDA_Supply_Service::save_settings( (int) $product->get_id(), 0, $mode, $lead, null );
+				$supplier = isset( $_POST['mda_supplier_id'] ) ? absint( $_POST['mda_supplier_id'] ) : MDA_Supplier_Service::get( (int) $product->get_id() )['supplier_id'];
+				MDA_Supply_Service::save_settings( (int) $product->get_id(), 0, $mode, $lead, $supplier ?: null );
+				if ( isset( $_POST['mda_supplier_sku'] ) || isset( $_POST['mda_supplier_note'] ) ) {
+					MDA_Supplier_Service::save(
+						(int) $product->get_id(),
+						$supplier,
+						sanitize_text_field( wp_unslash( $_POST['mda_supplier_sku'] ?? '' ) ),
+						sanitize_text_field( wp_unslash( $_POST['mda_supplier_note'] ?? '' ) )
+					);
+				}
 			} catch ( Throwable $e ) {
 				if ( class_exists( 'WC_Admin_Meta_Boxes' ) ) {
 					WC_Admin_Meta_Boxes::add_error( esc_html( 'ذخیره نحوه تأمین در حسابداری انجام نشد: ' . $e->getMessage() ) );

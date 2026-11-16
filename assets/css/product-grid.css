@@ -211,3 +211,6 @@ button.mdg-badge:hover{transform:translateY(-1px);filter:brightness(.97)}
 .mdg-col-toggles label{display:flex;gap:6px;align-items:center;padding:6px 8px;border:1px solid var(--g-line);border-radius:9px;font-size:12.5px}
 @media (max-width:782px){.mdg-grid-2{grid-template-columns:1fr}.mda-grid-wrap{margin-left:8px}}
 @media (prefers-reduced-motion:reduce){.mda-grid-wrap *,.mdg-pop,.mdg-modal__box{animation:none!important;transition:none!important}}
+
+.mdg-in--sel{min-width:150px;text-align:right;cursor:pointer}
+.mdg-c-supplier{min-width:160px}

@@ -34,6 +34,14 @@ final class MDA_Integrations {
 		return admin_url( 'post.php?post=' . $order_id . '&action=edit' );
 	}
 
+	/** WooCommerce orders list (HPOS or legacy posts screen). */
+	public static function orders_url(): string {
+		if ( class_exists( '\Automattic\WooCommerce\Utilities\OrderUtil' ) && \Automattic\WooCommerce\Utilities\OrderUtil::custom_orders_table_usage_is_enabled() ) {
+			return admin_url( 'admin.php?page=wc-orders' );
+		}
+		return admin_url( 'edit.php?post_type=shop_order' );
+	}
+
 	public static function invoice_available(): bool {
 		return class_exists( '\PersianInvoiceStudio\Admin\PrintController' ) && method_exists( '\PersianInvoiceStudio\Admin\PrintController', 'url' );
 	}

@@ -38,7 +38,7 @@ final class MDA_WooCommerce {
  }
  public static function sync_stock($warehouseId=0): void {
   if(!MDA_Database::is_available())return;
-  try{if((int)$warehouseId<1){$q=MDA_Database::connection()->query("SELECT id FROM mda_warehouses WHERE warehouse_code='MAIN' AND is_active=1 LIMIT 1");$warehouseId=(int)$q->fetchColumn();}if((int)$warehouseId>0)MDA_Stock_Sync_Service::run_batch((int)$warehouseId,100);}catch(Throwable $e){error_log('MaliDev Accounting WooCommerce stock sync failed: '.$e->getMessage());}
+  try{if((int)$warehouseId<1)$warehouseId=MDA_Settings::online_warehouse_id();if((int)$warehouseId>0)MDA_Stock_Sync_Service::run_batch((int)$warehouseId,100);}catch(Throwable $e){error_log('MaliDev Accounting WooCommerce stock sync failed: '.$e->getMessage());}
  }
  public static function reconcile_orders(): void {
   if(!MDA_Database::is_available())return;

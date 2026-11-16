@@ -5,10 +5,10 @@ defined( 'ABSPATH' ) || exit;
 final class MDA_Outbox_Service {
  public static function enqueue_order($order): void {
   if(!$order||!is_object($order)||!method_exists($order,'get_id'))return;
-  $status=$order->get_status();if(!in_array($status,array('processing','completed'),true))return;
+  $status=$order->get_status();if(!in_array($status,class_exists('MDA_Order_Statuses')?MDA_Order_Statuses::sale_statuses():array('processing','completed'),true))return;
   $currency=strtoupper((string)$order->get_currency());if(!in_array($currency,array('IRR','IRT'),true))throw new RuntimeException('در این نسخه فروش فقط با واحد پول IRR یا IRT پشتیبانی می‌شود.');
   $warehouse=(int)$order->get_meta('_mda_sales_warehouse_id',true);
-  if($warehouse<1){$q=MDA_Database::connection()->query("SELECT id FROM mda_warehouses WHERE warehouse_code='MAIN' AND is_active=1 LIMIT 1");$warehouse=(int)$q->fetchColumn();}
+  if($warehouse<1)$warehouse=class_exists('MDA_Settings')?MDA_Settings::online_warehouse_id():(int)MDA_Database::connection()->query("SELECT id FROM mda_warehouses WHERE warehouse_code='MAIN' AND is_active=1 LIMIT 1")->fetchColumn();
   $items=array();foreach($order->get_items('line_item') as $itemId=>$item){
    $product=$item->get_product();$qty=(string)wc_format_decimal($item->get_quantity(),6);
    $scaled=self::scale_quantity($qty);$items[]=array('order_item_id'=>(int)$itemId,'product_id'=>(int)$item->get_product_id(),'variation_id'=>(int)$item->get_variation_id(),'name'=>(string)$item->get_name(),'sku'=>$product?$product->get_sku():null,'quantity_scaled'=>$scaled,'quantity_scale'=>1000000,'revenue_minor'=>self::money($item->get_total()),'tax_minor'=>self::money($item->get_total_tax()),);

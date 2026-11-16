@@ -247,7 +247,7 @@ final class MDA_Product_Grid {
 				echo '<th data-col="schedule">زمان اعمال تخفیف</th>';
 			}
 		}
-		echo '<th data-col="cats">دسته‌بندی</th><th data-col="tags">برچسب</th><th data-col="sku">' . $sort( 'sku', 'SKU' ) . '</th></tr></thead><tbody>'; // phpcs:ignore WordPress.Security.EscapeOutput
+		echo '<th data-col="cats">دسته‌بندی</th><th data-col="tags">برچسب</th><th data-col="supplier" title="فقط برای مدیر؛ مشتری نمی‌بیند">تأمین‌کننده</th><th data-col="sku">' . $sort( 'sku', 'SKU' ) . '</th></tr></thead><tbody>'; // phpcs:ignore WordPress.Security.EscapeOutput
 		if ( ! $data['products'] ) {
 			echo '<tr><td colspan="30" class="mdg-empty">محصولی با این فیلتر پیدا نشد.</td></tr>';
 		}
@@ -406,8 +406,23 @@ final class MDA_Product_Grid {
 				$o    .= '<td class="mdg-c-terms"><button type="button" class="mdg-terms" data-f="' . esc_attr( $f ) . '" data-tax="' . esc_attr( $tax ) . '" data-ids="' . esc_attr( implode( ',', wp_list_pluck( $terms, 'term_id' ) ) ) . '">' . ( $names ? esc_html( implode( '، ', $names ) ) : '<span class="mdg-dim">' . ( 'cats' === $f ? 'بدون دسته‌بندی' : '—' ) . '</span>' ) . '</button></td>';
 			}
 		}
+		$o .= '<td class="mdg-c-supplier">' . ( $is_var ? '<span class="mdg-dim" title="از محصول اصلی">↰</span>' : self::supplier_select( (int) $id ) ) . '</td>';
 		$o .= '<td class="mdg-c-sku"><input class="mdg-in mdg-in--sku" dir="ltr" data-f="sku" data-o="' . esc_attr( $p->get_sku( 'edit' ) ) . '" value="' . esc_attr( $p->get_sku( 'edit' ) ) . '" aria-label="SKU"></td>';
 		return $o . '</tr>';
+	}
+
+	/** Inline supplier select (internal; never shown to customers). */
+	private static function supplier_select( int $product_id ): string {
+		static $opts = null;
+		if ( null === $opts ) {
+			$opts = MDA_Supplier_Service::suppliers();
+		}
+		$cur = MDA_Supplier_Service::get( $product_id )['supplier_id'];
+		$h   = '<select class="mdg-in mdg-in--sel" data-f="supplier" data-o="' . (int) $cur . '" aria-label="تأمین‌کننده"><option value="0">—</option>';
+		foreach ( $opts as $sid => $label ) {
+			$h .= '<option value="' . (int) $sid . '"' . selected( $cur, $sid, false ) . '>' . esc_html( $label ) . '</option>';
+		}
+		return $h . '</select>';
 	}
 
 	private static function schedule_html( WC_Product $p ): string {
@@ -450,6 +465,11 @@ final class MDA_Product_Grid {
 		echo '<section data-pane="general"><div class="mdg-seg-group"><label>وضعیت انتشار</label><div class="mdg-seg" data-name="status"><button type="button" data-v="">بدون تغییر</button><button type="button" data-v="publish" class="ok">فعال</button><button type="button" data-v="draft" class="warn">غیرفعال</button></div></div>';
 		echo '<div class="mdg-seg-group"><label>وضعیت موجودی</label><div class="mdg-seg" data-name="stock_status"><button type="button" data-v="">بدون تغییر</button><button type="button" data-v="instock" class="ok">موجود</button><button type="button" data-v="outofstock" class="bad">ناموجود</button><button type="button" data-v="onbackorder" class="info">پیش‌خرید</button></div><small>برای محصولاتی که موجودی آن‌ها مدیریت می‌شود، وضعیت از تعداد موجودی تعیین می‌شود.</small></div>';
 		echo '<div class="mdg-seg-group"><label>محصول ویژه</label><div class="mdg-seg" data-name="featured"><button type="button" data-v="">بدون تغییر</button><button type="button" data-v="1" class="ok">★ ویژه</button><button type="button" data-v="0">عادی</button></div></div>';
+		echo '<div class="mdg-seg-group"><label>تأمین‌کننده (داخلی)</label><select name="bulk_supplier"><option value="">بدون تغییر</option><option value="0">— حذف تأمین‌کننده —</option>';
+		foreach ( MDA_Supplier_Service::suppliers() as $sid => $label ) {
+			echo '<option value="' . (int) $sid . '">' . esc_html( $label ) . '</option>';
+		}
+		echo '</select></div>';
 		echo '<div class="mdg-seg-group"><label>زمان اعمال تخفیف</label><div class="mdg-inline"><button type="button" class="mdg-btn mdg-bulk-sched">انتخاب بازه</button> <span class="mdg-bulk-sched-text mdg-dim">بدون تغییر</span> <label class="mdg-check-label"><input type="checkbox" name="schedule_clear"> حذف زمان‌بندی</label></div></div></section>';
 		echo '<section data-pane="price" hidden><div class="mdg-inline"><select name="price_field">';
 		foreach ( $fields as $k => $l ) {

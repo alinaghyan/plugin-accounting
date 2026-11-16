@@ -77,6 +77,11 @@
 		$i.toggleClass( 'is-dirty', d );
 		setPending( rowId( this ), $i.data( 'f' ), $i.val(), d );
 	} );
+	$grid.on( 'change', '.mdg-in--sel', function () {
+		const $i = $( this ), d = String( $i.val() ) !== String( $i.data( 'o' ) ?? '' );
+		$i.toggleClass( 'is-dirty', d );
+		setPending( rowId( this ), $i.data( 'f' ), $i.val(), d );
+	} );
 	$grid.on( 'change', '.mdg-in--check', function () {
 		const $i = $( this ), now = this.checked ? '1' : '', d = now !== String( $i.data( 'o' ) ?? '' );
 		$i.closest( 'td' ).toggleClass( 'is-dirty', d );
@@ -376,6 +381,8 @@
 		if ( op ) s.price = { field: $m.find( '[name=price_field]' ).val(), op, value: String( signed( $m.find( '[name=price_value]' ).val() ) ), source: $m.find( '[name=price_source]' ).val(), round: $m.find( '[name=price_round]' ).val() };
 		if ( $m.find( '[name=schedule_clear]' ).is( ':checked' ) ) s.schedule_clear = 1;
 		else if ( bulk.from || bulk.to ) { s.sale_from = bulk.from; s.sale_to = bulk.to; }
+		const sup = $m.find( '[name=bulk_supplier]' ).val();
+		if ( sup !== '' && sup !== undefined ) s.supplier = sup;
 		const mm = seg( 'message_mode' );
 		if ( mm ) s.message = Object.assign( msgRead( $m.find( '.mdg-msg-fields' ) ), { mode: mm } );
 		return s;

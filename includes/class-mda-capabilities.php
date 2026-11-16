@@ -84,11 +84,12 @@ final class MDA_Capabilities {
 			'mda-inventory'           => self::CREATE_DOCUMENTS,
 			'mda-bank-reconciliation' => self::CREATE_DOCUMENTS,
 			'mda-gateway-settlements' => self::CREATE_DOCUMENTS,
+			'mda-warehouses'          => self::CREATE_DOCUMENTS,
 		);
 		if ( in_array( $slug, array( 'mda-prices', 'mda-products' ), true ) ) {
 			return 'edit_products';
 		}
-		if ( in_array( $slug, array( 'mda-identity', 'malidev-shahkar' ), true ) ) {
+		if ( in_array( $slug, array( 'mda-identity', 'malidev-shahkar', 'mda-order-statuses' ), true ) ) {
 			return 'manage_woocommerce';
 		}
 		return $map[ $slug ] ?? self::MANAGE;

@@ -1,137 +1,260 @@
-body.mda-admin{--mda-ink:var(--wca-text,#1f1d2b);--mda-muted:var(--wca-muted,#6b6880);--mda-primary:var(--wca-accent,#8f1748);--mda-primary-dark:var(--wca-accent-dark,#6d1036);--mda-surface:var(--wca-surface,#fff);--mda-bg:var(--wca-bg,#f5f4f8);--mda-border:var(--wca-border,#ebe8f0);--mda-success:var(--wca-success,#12805c);--mda-danger:var(--wca-danger,#c0262d);--mda-radius:var(--wca-radius,18px);--mda-soft:var(--wca-accent-soft,#fbeef4)}
-body.mda-admin{background:var(--mda-bg);color:var(--mda-ink);font-family:var(--wca-font,Tahoma,sans-serif)}
-body.mda-admin #wpcontent{padding-right:20px}
-body.mda-admin #wpbody-content{padding-bottom:40px}
-body.mda-admin #wpbody-content>.wrap{margin:24px 8px 30px 20px;max-width:1600px;animation:mda-rise .45s ease both}
+/* =========================================================================
+ * MaliDev Accounting — admin design system.
+ * Every rule is scoped to body.mda-admin and written with enough specificity
+ * to win over the shared skin's Bootstrap resets (.wca-bs .card {padding:0}).
+ * Spacing scale: 4 · 8 · 12 · 16 · 20 · 24 · 32 px.
+ * ========================================================================= */
+body.mda-admin{
+	--mda-ink:var(--wca-text,#1f1d2b);--mda-muted:var(--wca-muted,#6b6880);--mda-faint:#9a97ab;
+	--mda-primary:var(--wca-accent,#8f1748);--mda-primary-2:var(--wca-accent-2,#c2185b);--mda-primary-dark:var(--wca-accent-dark,#6d1036);
+	--mda-soft:var(--wca-accent-soft,#fbeef4);--mda-surface:#fff;--mda-bg:#f4f3f8;--mda-line:#ebe9f1;--mda-line-2:#e1dfea;
+	--mda-success:#12805c;--mda-success-soft:#e7f6ef;--mda-danger:#c0262d;--mda-danger-soft:#fdecec;--mda-warn:#b45309;--mda-warn-soft:#fef5e6;
+	--mda-info:#2563eb;--mda-info-soft:#eaf1fe;--mda-teal:#0f766e;--mda-teal-soft:#e6f6f4;--mda-violet:#6d28d9;--mda-violet-soft:#f1ebfd;
+	--mda-r-sm:10px;--mda-r:16px;--mda-r-lg:22px;
+	--mda-shadow:0 1px 2px rgba(24,20,48,.04),0 6px 20px rgba(24,20,48,.05);
+	--mda-shadow-hover:0 2px 4px rgba(24,20,48,.05),0 14px 34px rgba(24,20,48,.10);
+	background:var(--mda-bg);color:var(--mda-ink);font-family:var(--wca-font,Vazirmatn,Tahoma,sans-serif)
+}
+body.mda-admin #wpcontent{padding-right:24px}
+body.mda-admin #wpbody-content{padding-bottom:48px}
+body.mda-admin #wpbody-content>.wrap{margin:20px 4px 32px 24px;max-width:1480px;animation:mda-fade-up .45s cubic-bezier(.2,.7,.2,1) both}
 
-body.mda-admin #wpbody-content>.wrap>p{color:var(--mda-muted);font-size:13px;line-height:2}
-body.mda-admin .widefat,body.mda-admin table.widefat{border:1px solid var(--mda-border);border-radius:14px;overflow:hidden;border-spacing:0;background:#fff;box-shadow:0 5px 20px rgba(26,39,74,.035)}
-body.mda-admin .widefat thead th{background:#f7f8fc;color:#66738a;font-weight:700;font-size:12px;padding:14px 13px;border-bottom:1px solid var(--mda-border)}
-body.mda-admin .widefat td,body.mda-admin .widefat th{padding:13px 14px;vertical-align:middle}
-body.mda-admin .widefat tbody tr{transition:background .2s ease,transform .2s ease}
-body.mda-admin .widefat tbody tr:hover{background:#fdf7fa}
-body.mda-admin input[type=text],body.mda-admin input[type=number],body.mda-admin input[type=date],body.mda-admin input[type=email],body.mda-admin input[type=search],body.mda-admin select,body.mda-admin textarea{border:1px solid #dfe4ef;border-radius:10px;min-height:39px;padding:7px 11px;max-width:100%;box-shadow:none;transition:border-color .2s,box-shadow .2s;background:#fff}
-body.mda-admin input:focus,body.mda-admin select:focus,body.mda-admin textarea:focus{border-color:var(--wca-accent-2,#c2185b);box-shadow:0 0 0 3px rgba(var(--wca-accent-rgb,143,23,72),.12);outline:0}
-body.mda-admin .button,body.mda-admin .button-primary{border-radius:10px;min-height:38px;padding:5px 16px;font-weight:700;transition:transform .2s,box-shadow .2s,background .2s}
-body.mda-admin .button-primary{background:linear-gradient(135deg,var(--wca-accent-2,#c2185b),#554bd0);border-color:#5b52d4;box-shadow:0 5px 13px rgba(var(--wca-accent-rgb,143,23,72),.2)}
-body.mda-admin .button:hover{transform:translateY(-1px)}
-body.mda-admin .button-primary:hover{background:linear-gradient(135deg,var(--mda-primary),#4840bc);box-shadow:0 8px 18px rgba(var(--wca-accent-rgb,143,23,72),.27)}
-body.mda-admin .notice{border-radius:12px;border-top:0;border-right-width:4px;box-shadow:0 4px 16px rgba(26,39,74,.04);padding:8px 14px}
-body.mda-admin .form-table th{color:#526078}
-body.mda-admin #adminmenu{padding-top:8px}
-body.mda-admin #adminmenu .wp-submenu a{padding-top:9px;padding-bottom:9px}
-body.mda-admin #adminmenu .wp-has-current-submenu>a.menu-top,body.mda-admin #adminmenu .wp-menu-open>a.menu-top{background:linear-gradient(110deg,var(--mda-primary),#4e48bd);border-radius:8px 0 0 8px}
-body.mda-admin .mda-card{background:var(--mda-surface);border:1px solid var(--mda-border);border-radius:var(--mda-radius);padding:20px;box-shadow:0 8px 28px rgba(30,43,78,.045);transition:transform .25s ease,box-shadow .25s ease}
-body.mda-admin .mda-card:hover{transform:translateY(-3px);box-shadow:0 14px 34px rgba(30,43,78,.09)}
-body.mda-admin .mda-hero{position:relative;overflow:hidden;border-radius:22px;padding:28px 30px;color:#fff;background:radial-gradient(circle at 12% 15%,rgba(255,255,255,.2),transparent 30%),linear-gradient(120deg,#5149c7,var(--wca-accent-2,#c2185b) 55%,var(--wca-accent-2,#c2185b));box-shadow:0 16px 36px rgba(var(--wca-accent-rgb,143,23,72),.2);margin:14px 0 22px}
-body.mda-admin .mda-hero:after{content:"";position:absolute;width:220px;height:220px;border:1px solid rgba(255,255,255,.17);border-radius:50%;left:-55px;top:-125px;box-shadow:0 0 0 25px rgba(255,255,255,.04),0 0 0 55px rgba(255,255,255,.035)}
-body.mda-admin .mda-hero h2{color:#fff;font-size:23px;margin:0 0 8px;font-weight:800}
-body.mda-admin .mda-hero p{color:rgba(255,255,255,.82);margin:0;line-height:2}
-body.mda-admin .mda-stat{display:flex;align-items:center;gap:14px;min-height:95px}
-body.mda-admin .mda-stat-icon{width:48px;height:48px;display:grid;place-items:center;border-radius:15px;background:var(--mda-soft);color:var(--mda-primary);font-size:23px}
-body.mda-admin .mda-stat small{display:block;color:var(--mda-muted);font-size:12px;margin-bottom:7px}
-body.mda-admin .mda-stat strong{font-size:21px;font-weight:800;color:var(--mda-ink)}
-body.mda-admin .mda-section-title{font-size:17px;font-weight:800;margin:24px 0 13px}
-body.mda-admin .mda-muted{color:var(--mda-muted)}
-body.mda-admin .mda-chip{display:inline-flex;align-items:center;padding:5px 10px;border-radius:30px;background:var(--mda-soft);color:#5c53ce;font-size:11px;font-weight:700}
-body.mda-admin .mda-actions{display:flex;gap:10px;flex-wrap:wrap}
-body.mda-admin .mda-actions a{display:inline-flex;align-items:center;gap:7px;text-decoration:none;font-weight:700;color:#5b53cf;padding:9px 12px;border:1px solid var(--mda-soft);border-radius:10px;background:#fdf9fb;transition:.2s}
-body.mda-admin .mda-actions a:hover{background:var(--mda-soft);transform:translateY(-2px)}
-body.mda-admin .mda-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px}
-body.mda-admin .mda-card h3{font-size:14px;margin:0 0 10px}
-body.mda-admin .mda-card p{margin:0;color:var(--mda-muted);line-height:1.9}
-body.mda-admin .mda-page-toolbar{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin:16px 0}
-body.mda-admin .mda-table-wrap{overflow:auto;border-radius:14px}
-body.mda-admin .mda-empty{padding:34px;text-align:center;color:var(--mda-muted)}
-@keyframes mda-rise{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
-@keyframes mda-glow{0%,100%{box-shadow:0 0 0 0 rgba(255,255,255,0)}50%{box-shadow:0 0 0 8px rgba(255,255,255,.07)}}
-@media(max-width:782px){body.mda-admin #wpcontent{padding-right:10px}body.mda-admin #wpbody-content>.wrap{margin:15px 3px}body.mda-admin .mda-hero{padding:22px 18px}body.mda-admin .widefat{min-width:720px}}
-@media(prefers-reduced-motion:reduce){body.mda-admin *,body.mda-admin *:before,body.mda-admin *:after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+/* ---------- typography ---------- */
+/* The shared skin turns .wrap>h1 into a gradient banner; accounting already has the shell + help header, so titles stay clean. */
+body.mda-admin #wpbody-content .wrap>h1{display:block;font-size:22px;font-weight:800;line-height:1.5;margin:8px 0 8px;padding:0;color:var(--mda-ink);background:none;box-shadow:none;border-radius:0}
+body.mda-admin #wpbody-content .wrap>h1+p,body.mda-admin #wpbody-content .wrap>p{color:var(--mda-muted);font-size:13px;line-height:2;margin:0 0 16px;max-width:980px}
+body.mda-admin #wpbody-content .wrap h2{font-size:16px;font-weight:800;line-height:1.6;margin:28px 0 14px;color:var(--mda-ink)}
+body.mda-admin #wpbody-content .wrap>h2,body.mda-admin #wpbody-content .mda-section-title{display:flex;align-items:center;gap:10px}
+body.mda-admin #wpbody-content .wrap>h2::before,body.mda-admin #wpbody-content .mda-section-title::before{content:"";width:4px;height:18px;border-radius:4px;background:linear-gradient(var(--mda-primary-2),var(--mda-primary));flex:none}
+body.mda-admin #wpbody-content .wrap h3{font-size:14px;font-weight:700;margin:0 0 8px}
+body.mda-admin .mda-muted,body.mda-admin .description{color:var(--mda-muted)}
+body.mda-admin .description{font-size:12.5px;line-height:1.9}
 
-/* Shared shell: brand + two-level navigation (MDA_Admin_Shell) */
-.mda-shell{margin:16px 20px 0 8px;background:#fff;border:1px solid var(--mda-border,var(--mda-border));border-radius:18px;padding:12px 16px;box-shadow:0 6px 24px rgba(var(--wca-accent-rgb,143,23,72),.08)}
-.mda-shell__brand{display:flex;align-items:center;gap:10px;margin-bottom:10px}
-.mda-shell__brand strong{display:block;font-size:15px;color:var(--mda-ink,var(--mda-ink))}
-.mda-shell__brand span{font-size:11px;color:var(--mda-muted,var(--mda-muted))}
+/* ---------- cards (beats .wca-bs .card resets) ---------- */
+body.mda-admin #wpbody-content .mda-card,body.mda-admin #wpbody-content .mda-card.card{
+	display:block;position:relative;max-width:none;min-width:0;margin:0 0 20px;padding:24px;
+	background:var(--mda-surface);border:1px solid var(--mda-line);border-radius:var(--mda-r);box-shadow:var(--mda-shadow);
+	transition:box-shadow .25s ease,transform .25s ease,border-color .25s ease
+}
+body.mda-admin #wpbody-content .mda-card>:first-child{margin-top:0}
+body.mda-admin #wpbody-content .mda-card>:last-child{margin-bottom:0}
+body.mda-admin #wpbody-content .mda-card>h2:first-child,body.mda-admin #wpbody-content .mda-card form>h2:first-of-type,body.mda-admin #wpbody-content .wrap>div[style*="background:#fff"] h2:first-of-type{margin-top:0}
+body.mda-admin #wpbody-content .mda-card p{color:var(--mda-muted);line-height:1.9}
+body.mda-admin #wpbody-content .mda-card .widefat{box-shadow:none}
+/* Legacy white boxes written with inline styles get the same card treatment. */
+body.mda-admin #wpbody-content .wrap>div[style*="background:#fff"]{max-width:none!important;padding:24px!important;background:#fff;border:1px solid var(--mda-line);border-radius:var(--mda-r);box-shadow:var(--mda-shadow);margin:0 0 20px!important}
+
+/* ---------- layout ---------- */
+body.mda-admin .mda-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:20px;margin:0 0 20px}
+body.mda-admin #wpbody-content .mda-grid>.mda-card{margin:0}
+body.mda-admin .mda-grid-2{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:20px;margin:0 0 20px}
+body.mda-admin .mda-grid-3,body.mda-admin .mda-grid.mda-grid-3{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:20px;margin:0 0 20px}
+body.mda-admin .mda-row{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+body.mda-admin .mda-page-toolbar{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin:0 0 20px}
+
+/* ---------- forms ---------- */
+body.mda-admin #wpbody-content input[type=text],body.mda-admin #wpbody-content input[type=number],body.mda-admin #wpbody-content input[type=date],
+body.mda-admin #wpbody-content input[type=email],body.mda-admin #wpbody-content input[type=search],body.mda-admin #wpbody-content input[type=tel],
+body.mda-admin #wpbody-content input[type=url],body.mda-admin #wpbody-content input[type=password],body.mda-admin #wpbody-content input:not([type]),
+body.mda-admin #wpbody-content select,body.mda-admin #wpbody-content textarea{
+	border:1px solid var(--mda-line-2);border-radius:var(--mda-r-sm);min-height:40px;padding:8px 12px;max-width:100%;
+	box-shadow:none;background:#fff;color:var(--mda-ink);font-family:inherit;font-size:13px;line-height:1.6;transition:border-color .2s,box-shadow .2s
+}
+body.mda-admin #wpbody-content select{padding-left:30px}
+body.mda-admin #wpbody-content textarea{min-height:84px}
+body.mda-admin #wpbody-content input:focus,body.mda-admin #wpbody-content select:focus,body.mda-admin #wpbody-content textarea:focus{border-color:var(--mda-primary-2);box-shadow:0 0 0 3px rgba(194,24,91,.12);outline:0}
+/* Inline "label + field" rows used by many screens: give every field room to breathe. */
+body.mda-admin #wpbody-content .wrap form p{display:flex;flex-wrap:wrap;gap:16px 20px;align-items:flex-end;margin:0 0 16px}
+body.mda-admin #wpbody-content .wrap form p>label{display:inline-flex;flex-direction:column;gap:6px;font-weight:600;font-size:12.5px;color:#4a475c;min-width:180px}
+body.mda-admin #wpbody-content .wrap form p>label>input[type=checkbox],body.mda-admin #wpbody-content .wrap form p>label>input[type=radio]{align-self:flex-start}
+body.mda-admin #wpbody-content .wrap form p>label:has(>input[type=checkbox]),body.mda-admin #wpbody-content .wrap form p>label:has(>input[type=radio]){flex-direction:row;align-items:center;min-width:0;font-weight:500}
+body.mda-admin #wpbody-content .wrap form p>label .regular-text{width:100%;min-width:220px}
+body.mda-admin #wpbody-content .form-table{margin:0}
+body.mda-admin #wpbody-content .form-table th{color:#4a475c;font-weight:700;padding:16px 0 16px 20px;width:220px}
+body.mda-admin #wpbody-content .form-table td{padding:12px 0}
+body.mda-admin .mda-fields{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px 20px;margin:0 0 20px}
+body.mda-admin .mda-fields>label,body.mda-admin .mda-field{display:flex;flex-direction:column;gap:6px;font-weight:600;font-size:12.5px;color:#4a475c}
+body.mda-admin .mda-fields>label small,body.mda-admin .mda-field small{font-weight:400;color:var(--mda-faint);line-height:1.7}
+body.mda-admin .mda-fields .is-wide{grid-column:1/-1}
+body.mda-admin .mda-check{display:inline-flex!important;flex-direction:row!important;align-items:center;gap:8px}
+
+/* ---------- buttons ---------- */
+body.mda-admin #wpbody-content .button,body.mda-admin #wpbody-content .button-primary,body.mda-admin #wpbody-content .button-secondary{
+	display:inline-flex;align-items:center;justify-content:center;gap:6px;border-radius:var(--mda-r-sm);min-height:40px;padding:6px 18px;
+	font-weight:700;font-size:13px;line-height:1.6;transition:transform .2s,box-shadow .2s,background .2s,border-color .2s;text-decoration:none
+}
+body.mda-admin #wpbody-content .button:not(.button-primary){background:#fff;border:1px solid var(--mda-line-2);color:var(--mda-ink)}
+body.mda-admin #wpbody-content .button:not(.button-primary):hover{border-color:var(--mda-primary-2);color:var(--mda-primary);transform:translateY(-1px)}
+body.mda-admin #wpbody-content .button-primary{background:linear-gradient(135deg,var(--mda-primary-2),var(--mda-primary));border:0;color:#fff;box-shadow:0 6px 16px rgba(143,23,72,.22)}
+body.mda-admin #wpbody-content .button-primary:hover{transform:translateY(-1px);box-shadow:0 10px 22px rgba(143,23,72,.30);color:#fff}
+body.mda-admin #wpbody-content .button-small{min-height:32px;padding:3px 12px;font-size:12px}
+body.mda-admin #wpbody-content .button .dashicons{font-size:16px;width:16px;height:16px}
+body.mda-admin #wpbody-content .button-link-delete,body.mda-admin #wpbody-content .mda-danger-link{color:var(--mda-danger)}
+
+/* ---------- tables ---------- */
+body.mda-admin .mda-table-wrap{overflow:auto;border-radius:var(--mda-r);margin:0 0 24px;border:1px solid var(--mda-line);background:#fff;box-shadow:var(--mda-shadow)}
+body.mda-admin #wpbody-content table.widefat{border:0;border-radius:0;border-spacing:0;background:#fff;box-shadow:none;margin:0;width:100%}
+body.mda-admin #wpbody-content table.widefat:not(.mda-table-wrap table.widefat){border:1px solid var(--mda-line);border-radius:var(--mda-r);overflow:hidden;margin:0 0 24px}
+body.mda-admin #wpbody-content .widefat thead th,body.mda-admin #wpbody-content .widefat thead td{background:#f8f7fb;color:#6b6880;font-weight:700;font-size:12px;padding:14px 16px;border-bottom:1px solid var(--mda-line);white-space:nowrap}
+body.mda-admin #wpbody-content .widefat td,body.mda-admin #wpbody-content .widefat tbody th,body.mda-admin #wpbody-content .widefat tfoot th{padding:14px 16px;vertical-align:middle;font-size:13px;line-height:1.8}
+body.mda-admin #wpbody-content .widefat tbody tr{transition:background .15s ease}
+body.mda-admin #wpbody-content .widefat tbody tr:hover{background:#fcf8fb}
+body.mda-admin #wpbody-content .widefat.striped>tbody>:nth-child(odd){background:#fcfcfe}
+body.mda-admin #wpbody-content .widefat tbody tr+tr td{border-top:1px solid #f2f1f6}
+body.mda-admin #wpbody-content .widefat tfoot th{background:#faf9fc;font-weight:800}
+body.mda-admin .mda-empty{padding:40px 24px;text-align:center;color:var(--mda-muted)}
+body.mda-admin .mda-empty .dashicons{font-size:36px;width:36px;height:36px;color:var(--mda-faint);display:block;margin:0 auto 10px}
+
+/* ---------- notices ---------- */
+body.mda-admin #wpbody-content .notice{border-radius:12px;border:1px solid var(--mda-line);border-right-width:4px;box-shadow:var(--mda-shadow);padding:10px 16px;margin:0 0 16px}
+body.mda-admin #wpbody-content .notice p{margin:4px 0}
+body.mda-admin #wpbody-content .notice.inline{margin:12px 0}
+
+/* ---------- badges / pills ---------- */
+body.mda-admin .mda-chip{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:999px;background:var(--mda-soft);color:var(--mda-primary);font-size:11.5px;font-weight:700}
+body.mda-admin .mda-pill{display:inline-flex;align-items:center;gap:6px;padding:3px 12px;border-radius:999px;font-size:12px;font-weight:600;background:#f1f0f6;color:#4a475c}
+body.mda-admin .mda-pill--ok{background:var(--mda-success-soft);color:var(--mda-success)}
+body.mda-admin .mda-pill--warn{background:var(--mda-warn-soft);color:var(--mda-warn)}
+body.mda-admin .mda-pill--bad{background:var(--mda-danger-soft);color:var(--mda-danger)}
+body.mda-admin .mda-pill--info{background:var(--mda-info-soft);color:var(--mda-info)}
+body.mda-admin .mda-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:currentColor;flex:none}
+.mda-ok{color:var(--mda-success,#12805c);font-weight:700}
+.mda-bad{color:var(--mda-danger,#c0262d);font-weight:700}
+
+/* ---------- shell: brand + two-level navigation ---------- */
+body.mda-admin #wpbody-content .mda-shell{margin:20px 4px 0 24px;max-width:1480px;background:linear-gradient(135deg,#fff 0%,#fff 62%,var(--mda-soft) 100%);border:1px solid var(--mda-line);border-radius:var(--mda-r-lg);padding:16px 20px;box-shadow:var(--mda-shadow);animation:mda-fade-up .45s cubic-bezier(.2,.7,.2,1) both}
+.mda-shell__top{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:14px}
+.mda-shell__brand{display:flex;align-items:center;gap:12px}
+.mda-shell__brand img{border-radius:12px;box-shadow:0 6px 16px rgba(15,118,110,.25)}
+.mda-shell__brand strong{display:block;font-size:15px;font-weight:800;color:var(--mda-ink)}
+.mda-shell__brand span{font-size:11.5px;color:var(--mda-muted)}
+.mda-shell__quick{display:flex;gap:8px;flex-wrap:wrap}
+body.mda-admin #wpbody-content .mda-shell__quick a{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:999px;background:#fff;border:1px solid var(--mda-line);color:var(--mda-ink);font-size:12.5px;font-weight:600;text-decoration:none;transition:.2s}
+body.mda-admin #wpbody-content .mda-shell__quick a:hover{border-color:var(--mda-primary-2);color:var(--mda-primary);transform:translateY(-1px)}
+.mda-shell__quick .dashicons{font-size:16px;width:16px;height:16px}
 .mda-shell__tabs,.mda-shell__sub{display:flex;flex-wrap:wrap;gap:6px}
-.mda-shell__tab{padding:7px 14px;border-radius:12px;text-decoration:none;color:var(--mda-ink,var(--mda-ink));font-weight:600}
-.mda-shell__tab:hover{background:var(--mda-soft)}
-.mda-shell__tab.is-active{background:var(--mda-primary,var(--mda-primary));color:#fff}
-.mda-shell__sub{margin-top:10px;padding-top:10px;border-top:1px dashed var(--mda-border,var(--mda-border))}
-.mda-shell__pill{padding:4px 12px;border-radius:999px;text-decoration:none;color:var(--mda-muted,var(--mda-muted));background:var(--mda-bg);font-size:12.5px}
-.mda-shell__pill.is-active{color:var(--mda-primary,var(--mda-primary));background:var(--mda-soft);font-weight:700}
-@media (prefers-reduced-motion:reduce){.mda-shell img{animation:none}}
+body.mda-admin #wpbody-content .mda-shell__tab{display:inline-flex;align-items:center;gap:7px;padding:9px 16px;border-radius:12px;text-decoration:none;color:var(--mda-ink);font-weight:700;font-size:13px;transition:background .2s,color .2s,transform .2s}
+.mda-shell__tab .dashicons{font-size:17px;width:17px;height:17px;opacity:.75}
+body.mda-admin #wpbody-content .mda-shell__tab:hover{background:var(--mda-soft);transform:translateY(-1px)}
+body.mda-admin #wpbody-content .mda-shell__tab.is-active{background:linear-gradient(135deg,var(--mda-primary),var(--mda-primary-2));color:#fff;box-shadow:0 8px 20px rgba(143,23,72,.25)}
+.mda-shell__tab.is-active .dashicons{opacity:1}
+.mda-shell__sub{margin-top:14px;padding-top:14px;border-top:1px dashed var(--mda-line-2)}
+body.mda-admin #wpbody-content .mda-shell__pill{padding:6px 14px;border-radius:999px;text-decoration:none;color:var(--mda-muted);background:var(--mda-bg);font-size:12.5px;font-weight:600;transition:.2s}
+body.mda-admin #wpbody-content .mda-shell__pill:hover{color:var(--mda-primary)}
+body.mda-admin #wpbody-content .mda-shell__pill.is-active{color:var(--mda-primary);background:var(--mda-soft);box-shadow:inset 0 0 0 1px rgba(143,23,72,.18)}
 
-/* New screens */
-.mda-ok{color:var(--mda-success,#149b72);font-weight:700}
-.mda-bad{color:var(--mda-danger,#d94b67);font-weight:700}
-.mda-muted{color:var(--mda-muted,var(--mda-muted))}
-.mda-grid-2{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:18px}
-.mda-filter,.mda-inline{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:10px 0}
+/* ---------- page help ---------- */
+body.mda-admin #wpbody-content .mda-help{margin:16px 4px 0 24px;max-width:1480px;display:flex;gap:14px;align-items:flex-start;background:#fff;border:1px solid var(--mda-line);border-radius:var(--mda-r);padding:16px 20px;box-shadow:var(--mda-shadow)}
+.mda-help__icon{flex:none;width:40px;height:40px;border-radius:12px;display:grid;place-items:center;background:var(--mda-info-soft);color:var(--mda-info)}
+.mda-help__icon .dashicons{font-size:20px;width:20px;height:20px}
+.mda-help__body{flex:1;min-width:0}
+.mda-help__body>p{margin:0;color:#4a475c;font-size:13px;line-height:2}
+.mda-help details{margin-top:8px}
+.mda-help summary{cursor:pointer;color:var(--mda-info);font-weight:700;font-size:12.5px;list-style:none;display:inline-flex;align-items:center;gap:6px}
+.mda-help summary::-webkit-details-marker{display:none}
+.mda-help summary::before{content:"";width:7px;height:7px;border-left:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(45deg);transition:transform .2s;margin-top:-3px}
+.mda-help details[open] summary::before{transform:rotate(-45deg);margin-top:2px}
+.mda-help dl{display:grid;grid-template-columns:minmax(150px,220px) 1fr;gap:10px 20px;margin:14px 0 4px;padding:14px 16px;background:#fafafd;border-radius:12px;border:1px solid var(--mda-line)}
+.mda-help dt{font-weight:700;color:var(--mda-ink);font-size:12.5px}
+.mda-help dd{margin:0;color:var(--mda-muted);font-size:12.5px;line-height:1.9}
+.mda-help__tip{margin-top:10px;font-size:12px;color:var(--mda-teal);display:flex;gap:6px;align-items:flex-start}
+@media(max-width:782px){.mda-help dl{grid-template-columns:1fr}}
+
+/* ---------- dashboard ---------- */
+body.mda-admin .mda-hero{position:relative;overflow:hidden;border-radius:var(--mda-r-lg);padding:32px 36px;color:#fff;margin:0 0 24px;
+	background:radial-gradient(circle at 10% 20%,rgba(255,255,255,.16),transparent 32%),linear-gradient(120deg,var(--mda-primary-dark),var(--mda-primary) 45%,var(--mda-primary-2));
+	background-size:100% 100%,200% 100%;animation:mda-fade-up .5s both,mda-sheen 14s linear infinite;box-shadow:0 18px 40px rgba(143,23,72,.22)}
+body.mda-admin .mda-hero::after{content:"";position:absolute;width:260px;height:260px;border:1px solid rgba(255,255,255,.16);border-radius:50%;left:-70px;top:-140px;box-shadow:0 0 0 28px rgba(255,255,255,.04),0 0 0 60px rgba(255,255,255,.03)}
+body.mda-admin #wpbody-content .mda-hero h2{color:#fff;font-size:24px;font-weight:800;margin:14px 0 8px}
+body.mda-admin #wpbody-content .mda-hero h2::before{display:none}
+body.mda-admin #wpbody-content .mda-hero p{color:rgba(255,255,255,.85);margin:0;line-height:2;max-width:680px}
+body.mda-admin .mda-hero__row{position:relative;z-index:1;display:flex;justify-content:space-between;align-items:flex-end;gap:24px;flex-wrap:wrap}
+body.mda-admin .mda-hero__badge{display:inline-flex;gap:8px;align-items:center;padding:5px 14px;border-radius:999px;background:rgba(255,255,255,.16);font-size:11.5px;font-weight:700;letter-spacing:.3px}
+body.mda-admin .mda-hero__cta{display:flex;gap:10px;flex-wrap:wrap}
+body.mda-admin #wpbody-content .mda-hero__cta a{display:inline-flex;align-items:center;gap:6px;padding:10px 18px;border-radius:12px;background:#fff;color:var(--mda-primary);font-weight:800;text-decoration:none;font-size:13px;transition:.2s;box-shadow:0 8px 20px rgba(0,0,0,.12)}
+body.mda-admin #wpbody-content .mda-hero__cta a.is-ghost{background:rgba(255,255,255,.14);color:#fff;box-shadow:none;border:1px solid rgba(255,255,255,.3)}
+body.mda-admin #wpbody-content .mda-hero__cta a:hover{transform:translateY(-2px)}
+
+body.mda-admin #wpbody-content .mda-kpi{display:flex;align-items:flex-start;gap:16px;padding:20px 22px}
+body.mda-admin #wpbody-content .mda-kpi:hover,body.mda-admin #wpbody-content .mda-action:hover{transform:translateY(-3px);box-shadow:var(--mda-shadow-hover);border-color:var(--mda-line-2)}
+.mda-kpi__icon,.mda-action__icon{flex:none;width:46px;height:46px;border-radius:14px;display:grid;place-items:center;background:var(--mda-soft);color:var(--mda-primary)}
+.mda-kpi__icon .dashicons,.mda-action__icon .dashicons{font-size:22px;width:22px;height:22px}
+.mda-kpi__body{min-width:0;flex:1}
+.mda-kpi__label{display:block;color:var(--mda-muted);font-size:12.5px;font-weight:600;margin-bottom:6px}
+.mda-kpi__value{display:block;font-size:22px;font-weight:800;color:var(--mda-ink);line-height:1.3;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mda-kpi__value small{font-size:12px;font-weight:600;color:var(--mda-muted);margin-right:4px}
+.mda-kpi__sub{display:block;margin-top:6px;font-size:11.5px;color:var(--mda-faint)}
+.is-teal .mda-kpi__icon,.is-teal .mda-action__icon{background:var(--mda-teal-soft);color:var(--mda-teal)}
+.is-info .mda-kpi__icon,.is-info .mda-action__icon{background:var(--mda-info-soft);color:var(--mda-info)}
+.is-ok .mda-kpi__icon,.is-ok .mda-action__icon{background:var(--mda-success-soft);color:var(--mda-success)}
+.is-warn .mda-kpi__icon,.is-warn .mda-action__icon{background:var(--mda-warn-soft);color:var(--mda-warn)}
+.is-bad .mda-kpi__icon,.is-bad .mda-action__icon{background:var(--mda-danger-soft);color:var(--mda-danger)}
+.is-violet .mda-kpi__icon,.is-violet .mda-action__icon{background:var(--mda-violet-soft);color:var(--mda-violet)}
+body.mda-admin #wpbody-content a.mda-action{display:flex;gap:14px;align-items:flex-start;text-decoration:none;color:inherit;padding:20px 22px}
+.mda-action__body strong{display:block;font-size:14px;font-weight:800;color:var(--mda-ink);margin-bottom:4px}
+.mda-action__body span{display:block;font-size:12.5px;color:var(--mda-muted);line-height:1.9}
+.mda-action__arrow{margin-right:auto;align-self:center;color:var(--mda-faint);transition:transform .2s,color .2s}
+a.mda-action:hover .mda-action__arrow{transform:translateX(-4px);color:var(--mda-primary)}
+
+.mda-chart{display:flex;align-items:flex-end;gap:6px;height:150px;padding:8px 0 0}
+.mda-chart__bar{flex:1;min-width:8px;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:6px;height:100%}
+.mda-chart__bar i{display:block;width:100%;max-width:34px;border-radius:8px 8px 4px 4px;background:linear-gradient(180deg,var(--mda-primary-2),var(--mda-primary));min-height:3px;transform-origin:bottom;animation:mda-grow .7s cubic-bezier(.2,.7,.2,1) both}
+.mda-chart__bar.is-zero i{background:#ece9f2}
+.mda-chart__bar span{font-size:10px;color:var(--mda-faint);white-space:nowrap}
+@keyframes mda-grow{from{transform:scaleY(0)}to{transform:scaleY(1)}}
+.mda-list{list-style:none;margin:0;padding:0}
+.mda-list li{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid #f2f1f6;font-size:13px}
+.mda-list li:last-child{border-bottom:0;padding-bottom:0}
+.mda-list li:first-child{padding-top:0}
+.mda-list__label{display:flex;align-items:center;gap:10px;color:#4a475c}
+.mda-list__value{font-weight:800;font-variant-numeric:tabular-nums}
+body.mda-admin #wpbody-content .mda-card__head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:0 0 18px}
+body.mda-admin #wpbody-content .mda-card__head h2,body.mda-admin #wpbody-content .mda-card__head h3{margin:0}
+body.mda-admin #wpbody-content .mda-card__head h2::before{display:none}
+body.mda-admin #wpbody-content .mda-card__head a{font-size:12.5px;font-weight:700;text-decoration:none;color:var(--mda-primary)}
+
+/* ---------- misc helpers kept for existing screens ---------- */
+body.mda-admin .mda-actions{display:flex;gap:10px;flex-wrap:wrap}
+body.mda-admin .mda-filter,body.mda-admin .mda-inline{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;margin:0 0 16px}
 .mda-jdate{direction:ltr;text-align:center}
 .mda-amount{direction:ltr;text-align:left;min-width:120px}
-.mda-journal-lines select{max-width:260px}
+body.mda-admin #wpbody-content .mda-journal-lines select{min-width:220px;max-width:280px}
 .mda-journal-lines tfoot th{font-size:14px}
-
-/* WordPress core gives .card a 520px max-width; accounting cards are full width. */
-body.mda-admin #wpbody-content .mda-card{max-width:none;margin-bottom:18px}
-body.mda-admin #wpbody-content .mda-shell a{text-decoration:none}
-body.mda-admin #wpbody-content .mda-shell__tab{color:var(--mda-ink,var(--mda-ink))}
-body.mda-admin #wpbody-content .mda-shell__tab.is-active{color:#fff}
-body.mda-admin #wpbody-content .mda-shell__pill{color:var(--mda-muted,var(--mda-muted))}
-body.mda-admin #wpbody-content .mda-shell__pill.is-active{color:var(--mda-primary,var(--mda-primary))}
-body.mda-admin #wpbody-content .mda-journal-lines select{min-width:220px}
-body.mda-admin #wpbody-content .mda-shell{margin-top:16px}
-
-
-/* Motion (MaliDev skin): staggered entrance, lift on hover, animated brand mark; disabled for reduced motion. */
-@keyframes mda-fade-up{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
-@keyframes mda-sheen{from{background-position:-200% 0}to{background-position:200% 0}}
-body.mda-admin .mda-shell{animation:mda-fade-up .5s cubic-bezier(.2,.7,.2,1) both;background:linear-gradient(135deg,#fff 0%,#fff 60%,var(--mda-soft) 100%)}
-body.mda-admin #wpbody-content .mda-card,body.mda-admin #wpbody-content .wca-card{animation:mda-fade-up .55s cubic-bezier(.2,.7,.2,1) both}
-body.mda-admin #wpbody-content .mda-card:nth-of-type(2){animation-delay:.06s}
-body.mda-admin #wpbody-content .mda-card:nth-of-type(3){animation-delay:.12s}
-body.mda-admin #wpbody-content .mda-card:nth-of-type(4){animation-delay:.18s}
-body.mda-admin #wpbody-content .mda-card:nth-of-type(n+5){animation-delay:.24s}
-body.mda-admin .mda-shell__tab{transition:background .2s ease,color .2s ease,transform .2s ease}
-body.mda-admin .mda-shell__tab:hover{transform:translateY(-1px)}
-body.mda-admin .mda-shell__tab.is-active{background:linear-gradient(135deg,var(--mda-primary),var(--wca-accent-2,#c2185b));box-shadow:0 8px 20px rgba(var(--wca-accent-rgb,143,23,72),.25)}
-body.mda-admin .mda-hero{background:linear-gradient(120deg,var(--mda-primary-dark),var(--mda-primary) 45%,var(--wca-accent-2,#c2185b));background-size:200% 100%;animation:mda-fade-up .5s both,mda-sheen 12s linear infinite}
 body.mda-admin .mda-count{display:inline-block;min-width:1ch}
 body.mda-admin tr.mda-flash td{animation:mda-row-flash 1.6s ease}
-@keyframes mda-row-flash{0%{background:var(--mda-soft)}100%{background:transparent}}
-@media (prefers-reduced-motion:reduce){body.mda-admin *,body.mda-admin *::before,body.mda-admin *::after{animation:none!important;transition:none!important}}
+.mda-price-fields .form-field input,.mda-variation-prices input{direction:ltr}
+body.mda-admin .mda-swatch{display:inline-block;width:14px;height:14px;border-radius:4px;vertical-align:middle;box-shadow:inset 0 0 0 1px rgba(0,0,0,.08)}
+body.mda-admin .mda-stock-num{font-weight:800;font-variant-numeric:tabular-nums}
+body.mda-admin .mda-stock-num.is-zero{color:var(--mda-faint);font-weight:500}
+body.mda-admin .mda-stock-num.is-neg{color:var(--mda-danger)}
 
-/* Price manager */
-body.mda-admin .mda-price-grid{min-width:1100px}
-body.mda-admin .mda-price-grid td,body.mda-admin .mda-price-grid th{padding:8px 8px;white-space:nowrap}
-body.mda-admin .mda-price-grid .mda-name{white-space:normal;min-width:200px;max-width:320px}
-body.mda-admin .mda-price-grid tr.is-variation .mda-name{padding-inline-start:26px;color:var(--mda-muted)}
-body.mda-admin .mda-price-grid tr.is-parent{background:#fcfbfd}
-body.mda-admin #wpbody-content .mda-cell{width:118px;min-width:0;direction:ltr;text-align:left;border-radius:10px;border:1px solid var(--mda-border);padding:5px 8px;transition:border-color .15s,background .15s,box-shadow .15s}
-body.mda-admin #wpbody-content .mda-cell:focus{border-color:var(--mda-primary);box-shadow:0 0 0 3px rgba(var(--wca-accent-rgb,143,23,72),.15);outline:0}
-body.mda-admin #wpbody-content .mda-cell.is-dirty{background:#fff8e6;border-color:#f0b429}
-body.mda-admin #wpbody-content .mda-cell.is-preview{background:var(--mda-soft)}
-body.mda-admin .mda-price-grid tr.has-error td{background:#fdeced}
-body.mda-admin .mda-margin{font-weight:700;color:var(--mda-success)}
-body.mda-admin .mda-margin.is-low{color:#b45309}
-body.mda-admin .mda-margin.is-neg{color:var(--mda-danger)}
-body.mda-admin .mda-legend{margin-inline-start:auto;color:var(--mda-muted);font-size:12px}
-body.mda-admin .mda-legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin:0 8px 0 3px;vertical-align:middle}
-body.mda-admin .mda-legend i.is-low{background:#b45309}body.mda-admin .mda-legend i.is-neg{background:var(--mda-danger)}
-body.mda-admin .mda-price-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px}
-body.mda-admin #mda-save.is-busy{opacity:.7;cursor:progress}
-body.mda-admin .mda-bulk-bar{position:sticky;top:40px;z-index:5;border-inline-start:4px solid var(--mda-border);transition:border-color .2s,box-shadow .2s}
-body.mda-admin .mda-bulk-bar.is-active{border-inline-start-color:var(--mda-primary);box-shadow:0 10px 30px rgba(var(--wca-accent-rgb,143,23,72),.14)}
-body.mda-admin .mda-bulk-bar__row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:4px 0}
-body.mda-admin .mda-chip{display:inline-block;padding:1px 8px;border-radius:999px;background:var(--mda-soft);color:var(--mda-primary);font-size:11px}
-.mda-toast{position:fixed;bottom:24px;left:50%;transform:translate(-50%,20px);opacity:0;background:#12805c;color:#fff;padding:10px 18px;border-radius:12px;z-index:100000;box-shadow:0 10px 30px rgba(0,0,0,.18);transition:all .3s cubic-bezier(.2,.7,.2,1);font-family:var(--wca-font,Tahoma,sans-serif);direction:rtl}
+/* toast + modal (shared with price/grid screens) */
+.mda-toast{position:fixed;bottom:24px;left:50%;transform:translate(-50%,20px);opacity:0;background:#12805c;color:#fff;padding:12px 20px;border-radius:12px;z-index:100000;box-shadow:0 10px 30px rgba(0,0,0,.18);transition:all .3s cubic-bezier(.2,.7,.2,1);font-family:var(--wca-font,Vazirmatn,Tahoma,sans-serif);direction:rtl}
 .mda-toast.is-err{background:#c0262d}.mda-toast.is-in{opacity:1;transform:translate(-50%,0)}
 .mda-history-modal{position:fixed;inset:0;background:rgba(20,16,30,.45);z-index:100000;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .2s}
 .mda-history-modal.is-open{opacity:1}
-.mda-history-modal__box{background:#fff;border-radius:18px;padding:22px;width:min(760px,92vw);max-height:80vh;overflow:auto;direction:rtl;position:relative;animation:mda-fade-up .3s both}
+.mda-history-modal__box{background:#fff;border-radius:18px;padding:24px;width:min(760px,92vw);max-height:80vh;overflow:auto;direction:rtl;position:relative;animation:mda-fade-up .3s both}
 .mda-history-close{position:absolute;top:10px;left:14px;border:0;background:none;font-size:26px;cursor:pointer;color:#6b6880}
-.mda-price-fields .form-field input,.mda-variation-prices input{direction:ltr}
-body.mda-admin .mda-pill{display:inline-block;padding:3px 12px;border-radius:999px;font-size:12px;background:#f1f5f9;color:#334155}
-body.mda-admin .mda-pill--ok{background:#dcfce7;color:#166534}
-body.mda-admin .mda-pill--warn{background:#fef3c7;color:#92400e}
+
+/* ---------- motion ---------- */
+@keyframes mda-fade-up{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+@keyframes mda-sheen{from{background-position:0 0,-200% 0}to{background-position:0 0,200% 0}}
+@keyframes mda-row-flash{0%{background:var(--mda-soft)}100%{background:transparent}}
+body.mda-admin #wpbody-content .mda-grid>.mda-card,body.mda-admin #wpbody-content .mda-grid-3>.mda-card{animation:mda-fade-up .5s cubic-bezier(.2,.7,.2,1) both}
+body.mda-admin #wpbody-content .mda-grid>.mda-card:nth-child(2),body.mda-admin #wpbody-content .mda-grid-3>.mda-card:nth-child(2){animation-delay:.05s}
+body.mda-admin #wpbody-content .mda-grid>.mda-card:nth-child(3),body.mda-admin #wpbody-content .mda-grid-3>.mda-card:nth-child(3){animation-delay:.1s}
+body.mda-admin #wpbody-content .mda-grid>.mda-card:nth-child(4),body.mda-admin #wpbody-content .mda-grid-3>.mda-card:nth-child(4){animation-delay:.15s}
+body.mda-admin #wpbody-content .mda-grid>.mda-card:nth-child(n+5){animation-delay:.2s}
+
+/* ---------- responsive ---------- */
+@media(max-width:960px){body.mda-admin #wpbody-content .mda-shell,body.mda-admin #wpbody-content .mda-help{margin-left:8px}body.mda-admin #wpbody-content>.wrap{margin-left:8px}}
+@media(max-width:782px){
+	body.mda-admin #wpcontent{padding-right:10px}
+	body.mda-admin #wpbody-content>.wrap{margin:16px 2px}
+	body.mda-admin #wpbody-content .mda-shell,body.mda-admin #wpbody-content .mda-help{margin:12px 2px 0}
+	body.mda-admin .mda-hero{padding:24px 20px}
+	body.mda-admin #wpbody-content .mda-card{padding:18px}
+	body.mda-admin #wpbody-content .wrap form p>label{min-width:100%}
+	body.mda-admin #wpbody-content .form-table th{width:auto;padding-bottom:4px}
+}
+@media(prefers-reduced-motion:reduce){body.mda-admin *,body.mda-admin *::before,body.mda-admin *::after{animation:none!important;transition:none!important}}

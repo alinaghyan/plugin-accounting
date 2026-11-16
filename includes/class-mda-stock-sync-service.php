@@ -231,7 +231,7 @@ final class MDA_Stock_Sync_Service {
 		do {
 			$result = wc_get_orders(
 				array(
-					'status'       => self::RESERVE_STATES,
+					'status'       => array_values( array_unique( array_merge( self::RESERVE_STATES, class_exists( 'MDA_Order_Statuses' ) ? MDA_Order_Statuses::sale_statuses() : array() ) ) ),
 					'limit'        => 200,
 					'page'         => $page,
 					'paginate'     => true,

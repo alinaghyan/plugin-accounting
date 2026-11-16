@@ -18,24 +18,28 @@ final class MDA_Admin_Shell {
 	 */
 	public static function groups(): array {
 		return array(
-			'home'     => array( 'داشبورد', array( 'mda-accounting' => 'نمای کلی' ) ),
+			'home'     => array( 'داشبورد', array( 'mda-accounting' => 'نمای کلی' ), 'dashicons-chart-area' ),
 			'sales'    => array(
 				'فروش',
 				array(
-					'mda-phone-sales'    => 'فروش تلفنی / حضوری',
+					'mda-phone-sales'    => 'ثبت سفارش دستی',
 					'mda-sales-receipts' => 'دریافت از مشتری',
 					'mda-sales-returns'  => 'مرجوعی فروش',
+					'mda-order-statuses' => 'وضعیت‌های سفارش',
 					'mda-reconciliation' => 'تطبیق سفارش‌ها',
 				),
+				'dashicons-cart',
 			),
-			'products' => array( 'کالا و قیمت', array( 'mda-products' => 'اتاق کنترل محصولات', 'malidev-shahkar' => 'احراز هویت شاهکار', 'mda-identity' => 'سامانه مؤدیان' ) ),
+			'products' => array( 'کالا و قیمت', array( 'mda-products' => 'اتاق کنترل محصولات', 'malidev-shahkar' => 'احراز هویت شاهکار', 'mda-identity' => 'سامانه مؤدیان' ), 'dashicons-products' ),
 			'purchase' => array(
 				'خرید و انبار',
 				array(
 					'mda-purchases'  => 'خرید',
-					'mda-inventory'  => 'انبار و سفارش‌های معوق',
+					'mda-warehouses' => 'انبارها و انتقال',
+					'mda-inventory'  => 'شمارش و سفارش‌های معوق',
 					'mda-stock-sync' => 'همگام‌سازی موجودی',
 				),
+				'dashicons-archive',
 			),
 			'treasury' => array(
 				'خزانه',
@@ -45,6 +49,7 @@ final class MDA_Admin_Shell {
 					'mda-bank-reconciliation' => 'مغایرت‌گیری بانکی',
 					'mda-gateway-settlements' => 'تسویه درگاه‌ها',
 				),
+				'dashicons-bank',
 			),
 			'ledger'   => array(
 				'اسناد و دفاتر',
@@ -55,9 +60,10 @@ final class MDA_Admin_Shell {
 					'mda-party-ledger' => 'گردش حساب اشخاص',
 					'mda-accounts'     => 'کدینگ حساب‌ها',
 				),
+				'dashicons-book-alt',
 			),
-			'reports'  => array( 'گزارش‌ها', array( 'mda-reports' => 'سود و زیان و سودآوری' ) ),
-			'settings' => array( 'تنظیمات و ابزار', array( 'mda-settings' => 'تنظیمات، دوره مالی و پشتیبان' ) ),
+			'reports'  => array( 'گزارش‌ها', array( 'mda-reports' => 'سود و زیان و سودآوری' ), 'dashicons-chart-bar' ),
+			'settings' => array( 'تنظیمات و ابزار', array( 'mda-settings' => 'تنظیمات، دوره مالی و پشتیبان' ), 'dashicons-admin-generic' ),
 		);
 	}
 
@@ -126,8 +132,22 @@ final class MDA_Admin_Shell {
 				$active_group = $group;
 			}
 		}
-		$icon = MDA_URL . 'assets/icon/icon-animated.svg';
-		echo '<div class="mda-shell" dir="rtl"><div class="mda-shell__brand"><img src="' . esc_url( $icon ) . '" width="40" height="40" alt=""><div><strong>' . esc_html__( 'حسابداری فروشگاه', 'malidev-accounting' ) . '</strong><span>MaliDev · ' . esc_html( MDA_VERSION ) . '</span></div></div>';
+		$icon  = MDA_URL . 'assets/icon/icon-animated.svg';
+		$quick = array(
+			array( 'mda-phone-sales', 'dashicons-plus-alt2', 'سفارش دستی' ),
+			array( 'mda-purchases', 'dashicons-download', 'خرید جدید' ),
+			array( 'mda-products', 'dashicons-screenoptions', 'محصولات' ),
+		);
+		echo '<div class="mda-shell" dir="rtl"><div class="mda-shell__top"><div class="mda-shell__brand"><img src="' . esc_url( $icon ) . '" width="44" height="44" alt=""><div><strong>' . esc_html__( 'حسابداری فروشگاه', 'malidev-accounting' ) . '</strong><span>MaliDev · ' . esc_html( 'نسخه ' . MDA_VERSION ) . '</span></div></div><div class="mda-shell__quick">';
+		foreach ( $quick as $q ) {
+			if ( current_user_can( MDA_Capabilities::for_page( $q[0] ) ) ) {
+				echo '<a href="' . esc_url( self::url( $q[0] ) ) . '"><span class="dashicons ' . esc_attr( $q[1] ) . '" aria-hidden="true"></span>' . esc_html( $q[2] ) . '</a>';
+			}
+		}
+		if ( current_user_can( 'edit_shop_orders' ) ) {
+			echo '<a href="' . esc_url( MDA_Integrations::orders_url() ) . '"><span class="dashicons dashicons-list-view" aria-hidden="true"></span>' . esc_html__( 'سفارش‌های ووکامرس', 'malidev-accounting' ) . '</a>';
+		}
+		echo '</div></div>';
 		echo '<nav class="mda-shell__tabs" aria-label="' . esc_attr__( 'بخش‌های حسابداری', 'malidev-accounting' ) . '">';
 		foreach ( self::groups() as $group => $data ) {
 			$pages   = array_filter( array_keys( $data[1] ), static fn( $slug ) => current_user_can( MDA_Capabilities::for_page( $slug ) ) );
@@ -136,7 +156,7 @@ final class MDA_Admin_Shell {
 				continue;
 			}
 			$class = $group === $active_group ? ' is-active' : '';
-			echo '<a class="mda-shell__tab' . esc_attr( $class ) . '" href="' . esc_url( self::url( $first ) ) . '">' . esc_html( $data[0] ) . '</a>';
+			echo '<a class="mda-shell__tab' . esc_attr( $class ) . '" href="' . esc_url( self::url( $first ) ) . '"><span class="dashicons ' . esc_attr( $data[2] ?? 'dashicons-admin-generic' ) . '" aria-hidden="true"></span>' . esc_html( $data[0] ) . '</a>';
 		}
 		echo '</nav>';
 		$pages = self::groups()[ $active_group ][1];
@@ -152,5 +172,6 @@ final class MDA_Admin_Shell {
 			echo '</nav>';
 		}
 		echo '</div>';
+		MDA_Help::render( $current );
 	}
 }

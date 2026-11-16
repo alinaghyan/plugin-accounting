@@ -48,6 +48,7 @@ final class MDA_Admin {
  public static function enqueue_assets(string $hook): void {
   $screen=function_exists('get_current_screen')?get_current_screen():null;
   if(!$screen || (strpos((string)$screen->id,'mda-')===false && strpos((string)$screen->id,'mda_accounting')===false))return;
+  if(false!==strpos((string)$screen->id,'mda-purchases')&&wp_script_is('wc-enhanced-select','registered')){wp_enqueue_script('wc-enhanced-select');wp_enqueue_style('woocommerce_admin_styles');}
   $base=MDA_PATH.'assets/';
   $skin=MDA_URL.'assets/skin/';
   wp_enqueue_style('woocamers-bootstrap',$skin.'vendor/bootstrap.scoped.rtl.min.css',array(),'5.3.8');
@@ -64,38 +65,81 @@ final class MDA_Admin {
   if(!MDA_Capabilities::user_can_action()) wp_die(esc_html__('شما اجازه دسترسی به این بخش را ندارید.','malidev-accounting'));
  }
  public static function render(): void {
-  self::guard();$available=MDA_Database::is_available();$connected=false;$error='';$integrity='نامشخص';$stats=array('sales'=>0,'purchases'=>0,'parties'=>0,'events'=>0);
-  if($available){try{$pdo=MDA_Database::connection();$connected=true;$integrity=(string)$pdo->query('PRAGMA quick_check')->fetchColumn();
-   foreach(array('sales'=>'mda_sales_documents','purchases'=>'mda_purchase_documents','parties'=>'mda_parties','events'=>'mda_outbox_events') as $key=>$table){try{$stats[$key]=(int)$pdo->query('SELECT COUNT(*) FROM '.$table)->fetchColumn();}catch(Throwable $ignored){}}
-  }catch(Throwable $e){$error=$e->getMessage();}}
+  self::guard();
+  $available=MDA_Database::is_available();$error='';$integrity='—';
+  if($available){try{$integrity=(string)MDA_Database::connection()->query('PRAGMA quick_check')->fetchColumn();}catch(Throwable $e){$error=$e->getMessage();}}
+  $cur=MDA_Settings::currency_label();
+  $money=static function(int $v)use($cur):string{return number_format_i18n($v).'<small>'.esc_html($cur).'</small>';};
+  $today=$available?MDA_Dashboard_Service::sales_since(current_time('Y-m-d')):array('count'=>0,'total'=>0,'profit'=>0);
+  $month=$available?MDA_Dashboard_Service::sales_since(MDA_Dashboard_Service::month_start()):array('count'=>0,'total'=>0,'profit'=>0);
+  $ar=$available?MDA_Dashboard_Service::balance('12'):0;$ap=$available?-MDA_Dashboard_Service::balance('21'):0;$cash=$available?MDA_Dashboard_Service::balance('11'):0;
+  $att=$available?MDA_Dashboard_Service::attention():array();$days=$available?MDA_Dashboard_Service::daily_sales(14):array();$recent=$available?MDA_Dashboard_Service::recent_sales(6):array();
+  $max=max(1,...array_map(static fn($d)=>$d['total'],$days?:array(array('total'=>0))));
+  $margin=$month['total']>0?round($month['profit']/max(1,$month['total'])*100):0;
+  $u=static fn(string $slug):string=>admin_url('admin.php?page='.$slug);
+  $kpis=array(
+   array('is-teal','dashicons-cart','فروش امروز',$money($today['total']),number_format_i18n($today['count']).' سفارش'),
+   array('','dashicons-chart-line','فروش این ماه',$money($month['total']),number_format_i18n($month['count']).' سفارش'),
+   array('is-ok','dashicons-chart-pie','سود ناخالص این ماه',$money($month['profit']),'حاشیه سود '.number_format_i18n($margin).'٪'),
+   array('is-info','dashicons-bank','صندوق و بانک',$money($cash),'مانده حساب‌های ۱۱۰۰'),
+   array('is-violet','dashicons-groups','طلب از مشتریان',$money($ar),'حساب‌های دریافتنی'),
+   array('is-warn','dashicons-businessperson','بدهی به تأمین‌کنندگان',$money($ap),'حساب‌های پرداختنی'),
+  );
+  $tasks=array(
+   array('failed','dashicons-warning','is-bad','رویداد ناموفق صف فروش','mda-phone-sales'),
+   array('review','dashicons-flag','is-warn','مرجوعی نیازمند بررسی','mda-settings'),
+   array('backorders','dashicons-clock','is-warn','سفارش معوق (منتظر خرید)','mda-inventory'),
+   array('cheques','dashicons-calendar-alt','is-info','چک تا ۷ روز آینده','mda-cheques'),
+   array('low_stock','dashicons-archive','is-violet','کالای کم‌موجودی','mda-products'),
+   array('pending','dashicons-update','is-teal','سفارش در صف ثبت حسابداری','mda-phone-sales'),
+  );
+  $actions=array(
+   array('','dashicons-plus-alt2','ثبت سفارش دستی','سفارش تلفنی یا حضوری که در فهرست سفارش‌های ووکامرس هم ثبت می‌شود.','mda-phone-sales'),
+   array('is-teal','dashicons-download','ثبت خرید','فاکتور خرید، ورود کالا به انبار و بدهی به تأمین‌کننده.','mda-purchases'),
+   array('is-info','dashicons-screenoptions','اتاق کنترل محصولات','قیمت، موجودی، تأمین‌کننده و تخفیف همه کالاها در یک جدول.','mda-products'),
+   array('is-ok','dashicons-money-alt','دریافت از مشتری','ثبت دریافت‌های نقدی، کارتی یا چک و مانده هر فاکتور.','mda-sales-receipts'),
+   array('is-violet','dashicons-archive','انبارها و انتقال','موجودی هر انبار و جابه‌جایی کالا بین انبارها.','mda-warehouses'),
+   array('is-warn','dashicons-chart-bar','گزارش سود و زیان','سود هر کانال، هر محصول و هر سفارش.','mda-reports'),
+  );
   ?>
-  <div class="wrap" dir="rtl">
-   <div class="mda-hero"><span class="mda-chip" style="background:rgba(255,255,255,.18);color:#fff">MALIDEV ACCOUNTING · نسخه <?php echo esc_html(MDA_VERSION); ?></span><h2 style="margin-top:15px">مدیریت مالی فروشگاه، یکپارچه و هوشمند</h2><p>نمایی شفاف از خرید، فروش، موجودی و گردش مالی کسب‌وکار شما.</p></div>
-   <div class="mda-grid">
-    <div class="mda-card mda-stat"><span class="mda-stat-icon">🧾</span><div><small>اسناد فروش</small><strong><?php echo esc_html(number_format_i18n($stats['sales'])); ?></strong></div></div>
-    <div class="mda-card mda-stat"><span class="mda-stat-icon">📦</span><div><small>فاکتورهای خرید</small><strong><?php echo esc_html(number_format_i18n($stats['purchases'])); ?></strong></div></div>
-    <div class="mda-card mda-stat"><span class="mda-stat-icon">👥</span><div><small>طرف‌حساب‌ها</small><strong><?php echo esc_html(number_format_i18n($stats['parties'])); ?></strong></div></div>
-    <div class="mda-card mda-stat"><span class="mda-stat-icon">🔄</span><div><small>رویدادهای صف فروش</small><strong><?php echo esc_html(number_format_i18n($stats['events'])); ?></strong></div></div>
+  <div class="wrap mda-dashboard" dir="rtl"><h1 class="screen-reader-text">داشبورد حسابداری</h1><hr class="wp-header-end">
+   <section class="mda-hero"><div class="mda-hero__row"><div><span class="mda-hero__badge">MALIDEV ACCOUNTING · نسخه <?php echo esc_html(MDA_VERSION); ?></span><h2>مدیریت مالی فروشگاه، یکپارچه و دقیق</h2><p>خرید، فروش، انبار، خزانه و سود فروشگاه در یک نگاه. سفارش‌های ووکامرس خودکار ثبت حسابداری می‌شوند.</p></div>
+    <div class="mda-hero__cta"><a href="<?php echo esc_url($u('mda-phone-sales')); ?>"><span class="dashicons dashicons-plus-alt2" aria-hidden="true"></span>سفارش دستی</a><a class="is-ghost" href="<?php echo esc_url($u('mda-reports')); ?>"><span class="dashicons dashicons-chart-bar" aria-hidden="true"></span>گزارش‌ها</a></div></div></section>
+   <?php if(!$available): ?><div class="notice notice-error"><p>افزونه PDO_SQLite روی سرور فعال نیست؛ از میزبان بخواهید آن را فعال کند.</p></div><?php endif; ?>
+   <div class="mda-grid mda-grid-3">
+    <?php foreach($kpis as $k): ?><div class="mda-card mda-kpi <?php echo esc_attr($k[0]); ?>"><span class="mda-kpi__icon" aria-hidden="true"><span class="dashicons <?php echo esc_attr($k[1]); ?>"></span></span><div class="mda-kpi__body"><span class="mda-kpi__label"><?php echo esc_html($k[2]); ?></span><span class="mda-kpi__value"><?php echo wp_kses_post($k[3]); ?></span><span class="mda-kpi__sub"><?php echo esc_html($k[4]); ?></span></div></div><?php endforeach; ?>
    </div>
-   <h2 class="mda-section-title">دسترسی سریع</h2>
-   <div class="mda-grid">
-    <div class="mda-card"><h3>🛒 خرید و انبار</h3><p>ثبت فاکتور خرید، قطعی‌سازی، پرداخت و مرجوعی خرید.</p><p style="margin-top:15px"><a class="button button-primary" href="<?php echo esc_url(admin_url('admin.php?page=mda-purchases')); ?>">مدیریت خرید</a></p></div>
-    <div class="mda-card"><h3>💳 دریافت از مشتری</h3><p>ثبت دریافت‌های مرحله‌ای و مشاهده مانده فاکتورهای فروش.</p><p style="margin-top:15px"><a class="button button-primary" href="<?php echo esc_url(admin_url('admin.php?page=mda-sales-receipts')); ?>">مشاهده دریافت‌ها</a></p></div>
-    <div class="mda-card"><h3>👤 طرف‌حساب‌ها</h3><p>مدیریت مشتریان و تأمین‌کنندگان و اطلاعات تفصیلی.</p><p style="margin-top:15px"><a class="button" href="<?php echo esc_url(admin_url('admin.php?page=mda-parties')); ?>">مدیریت اشخاص</a></p></div>
-    <div class="mda-card"><h3>📊 گردش حساب اشخاص</h3><p>بررسی مانده و گردش بدهکار و بستانکار طرف‌حساب‌ها.</p><p style="margin-top:15px"><a class="button" href="<?php echo esc_url(admin_url('admin.php?page=mda-party-ledger')); ?>">گزارش گردش</a></p></div>
+   <div class="mda-grid-2">
+    <div class="mda-card"><div class="mda-card__head"><h3>فروش ۱۴ روز اخیر</h3><a href="<?php echo esc_url($u('mda-reports')); ?>">گزارش کامل ←</a></div>
+     <div class="mda-chart" role="img" aria-label="نمودار فروش روزانه">
+      <?php foreach($days as $i=>$d): $h=$d['total']>0?max(4,round($d['total']/$max*100)):3; ?>
+       <div class="mda-chart__bar<?php echo $d['total']>0?'':' is-zero'; ?>" title="<?php echo esc_attr(MDA_Jalali::format($d['date']).' — '.number_format_i18n($d['total']).' '.$cur); ?>"><i style="height:<?php echo (int)$h; ?>%;animation-delay:<?php echo (int)($i*30); ?>ms"></i><span><?php echo esc_html(mb_substr(MDA_Jalali::format($d['date']),-2)); ?></span></div>
+      <?php endforeach; ?>
+     </div></div>
+    <div class="mda-card"><div class="mda-card__head"><h3>نیازمند رسیدگی</h3></div><ul class="mda-list">
+     <?php foreach($tasks as $t): $n=(int)($att[$t[0]]??0); ?><li><span class="mda-list__label <?php echo esc_attr($t[2]); ?>"><span class="mda-kpi__icon" style="width:32px;height:32px;border-radius:10px" aria-hidden="true"><span class="dashicons <?php echo esc_attr($t[1]); ?>" style="font-size:16px;width:16px;height:16px"></span></span><a href="<?php echo esc_url($u($t[4])); ?>" style="text-decoration:none;color:inherit"><?php echo esc_html($t[3]); ?></a></span><span class="mda-pill <?php echo $n>0?($t[2]==='is-bad'?'mda-pill--bad':'mda-pill--warn'):'mda-pill--ok'; ?>"><?php echo esc_html(number_format_i18n($n)); ?></span></li><?php endforeach; ?>
+    </ul></div>
    </div>
-   <h2 class="mda-section-title">وضعیت سامانه</h2>
-   <div class="mda-card"><div class="mda-grid">
-    <div><span class="mda-muted">نسخه افزونه</span><p><strong><?php echo esc_html(MDA_VERSION); ?></strong></p></div>
-    <div><span class="mda-muted">PDO_SQLite</span><p><strong><?php echo $available?'فعال':'غیرفعال'; ?></strong></p></div>
-    <div><span class="mda-muted">اتصال دیتابیس</span><p><strong><?php echo $connected?'برقرار':'برقرار نیست'; ?></strong></p></div>
-    <div><span class="mda-muted">سلامت SQLite</span><p><strong><?php echo esc_html($integrity); ?></strong></p></div>
-   </div><?php if($error): ?><div class="notice notice-error"><p><?php echo esc_html($error); ?></p></div><?php endif; ?></div>
-   <p class="mda-muted" style="margin-top:18px">پردازش سفارش‌های ووکامرس از طریق صف SQLite انجام می‌شود. رویدادهای ناموفق و تطبیق سفارش‌ها باید در بخش فروش پیگیری شوند.</p>
+   <h2 class="mda-section-title">کارهای پرتکرار</h2>
+   <div class="mda-grid mda-grid-3">
+    <?php foreach($actions as $a): if(!current_user_can(MDA_Capabilities::for_page($a[4])))continue; ?><a class="mda-card mda-action <?php echo esc_attr($a[0]); ?>" href="<?php echo esc_url($u($a[4])); ?>"><span class="mda-action__icon" aria-hidden="true"><span class="dashicons <?php echo esc_attr($a[1]); ?>"></span></span><span class="mda-action__body"><strong><?php echo esc_html($a[2]); ?></strong><span><?php echo esc_html($a[3]); ?></span></span><span class="mda-action__arrow dashicons dashicons-arrow-left-alt2" aria-hidden="true"></span></a><?php endforeach; ?>
+   </div>
+   <div class="mda-grid-2">
+    <div class="mda-card"><div class="mda-card__head"><h3>آخرین فروش‌های ثبت‌شده</h3><a href="<?php echo esc_url(MDA_Integrations::orders_url()); ?>">همه سفارش‌ها ←</a></div>
+     <?php if($recent): ?><ul class="mda-list"><?php foreach($recent as $r): $ch=array('phone'=>'تلفنی','in_person'=>'حضوری','woocommerce'=>'سایت')[$r['source_type']]??''; ?><li><span class="mda-list__label"><a href="<?php echo esc_url(MDA_Integrations::order_url((int)$r['order_id'])); ?>">#<?php echo esc_html((string)$r['order_id']); ?></a> <span><?php echo esc_html((string)($r['display_name']?:'—')); ?></span><span class="mda-pill"><?php echo esc_html($ch); ?></span></span><span class="mda-list__value"><?php echo esc_html(number_format_i18n((int)$r['total_minor'])); ?> <small class="mda-muted"><?php echo esc_html(MDA_Jalali::format($r['document_date'])); ?></small></span></li><?php endforeach; ?></ul>
+     <?php else: ?><div class="mda-empty"><span class="dashicons dashicons-cart" aria-hidden="true"></span>هنوز فروشی در حسابداری ثبت نشده است.</div><?php endif; ?></div>
+    <div class="mda-card"><div class="mda-card__head"><h3>وضعیت سامانه</h3></div><ul class="mda-list">
+     <li><span class="mda-list__label">نسخه افزونه</span><span class="mda-list__value"><?php echo esc_html(MDA_VERSION); ?></span></li>
+     <li><span class="mda-list__label">پایگاه داده حسابداری (SQLite)</span><span class="mda-pill <?php echo $available?'mda-pill--ok':'mda-pill--bad'; ?>"><span class="mda-dot"></span><?php echo $available?'فعال':'غیرفعال'; ?></span></li>
+     <li><span class="mda-list__label">سلامت پایگاه داده</span><span class="mda-pill <?php echo 'ok'===$integrity?'mda-pill--ok':'mda-pill--warn'; ?>"><span class="mda-dot"></span><?php echo 'ok'===$integrity?'سالم':esc_html($integrity); ?></span></li>
+     <li><span class="mda-list__label">انبار فروش آنلاین</span><span class="mda-list__value"><?php $wid=$available?MDA_Settings::online_warehouse_id():0;$wn='—';if($wid){foreach(MDA_Inventory_Service::warehouses() as $w){if((int)$w['id']===$wid)$wn=$w['warehouse_name'];}} echo esc_html($wn); ?></span></li>
+     <li><span class="mda-list__label">واحد پول</span><span class="mda-list__value"><?php echo esc_html($cur); ?></span></li>
+    </ul><?php if($error): ?><div class="notice notice-error inline"><p><?php echo esc_html($error); ?></p></div><?php endif; ?></div>
+   </div>
   </div>
   <?php
  }
- 
+
  public static function save_party(): void {
   self::guard();check_admin_referer('mda_save_party');
   try{$id=!empty($_POST['party_id'])?absint($_POST['party_id']):null;MDA_Party_Service::save(wp_unslash($_POST),$id);$url=add_query_arg('mda_notice','party_saved',admin_url('admin.php?page=mda-parties'));}
@@ -122,7 +166,9 @@ final class MDA_Admin {
   self::guard();check_admin_referer('mda_create_purchase');
   try {
    $lines=array();$raw=wp_unslash($_POST['lines']??array());
-   foreach((array)$raw as $line){$product=absint($line['product_id']??0);if(!$product)continue;$qty=self::parse_quantity((string)($line['quantity']??''));$unit=filter_var((string)($line['unit_cost_minor']??''),FILTER_VALIDATE_INT);if(false===$unit||$unit<0)throw new InvalidArgumentException('قیمت خرید باید عدد صحیح نامنفی به واحد خرد پول باشد.');
+   foreach((array)$raw as $line){$item=absint($line['item']??0);if($item&&function_exists('wc_get_product')){$picked=wc_get_product($item);if(!$picked)throw new InvalidArgumentException('کالای انتخاب‌شده پیدا نشد.');if($picked->is_type('variable'))throw new InvalidArgumentException('برای «'.$picked->get_name().'» تنوع مشخص (رنگ، سایز و…) را انتخاب کنید.');$line['product_id']=$picked->is_type('variation')?$picked->get_parent_id():$item;$line['variation_id']=$picked->is_type('variation')?$item:0;}
+    $line['unit_cost_minor']=preg_replace('/[^0-9]/','',MDA_Jalali::latin_digits((string)($line['unit_cost_minor']??'')));
+    $product=absint($line['product_id']??0);if(!$product)continue;$qty=self::parse_quantity((string)($line['quantity']??''));$unit=filter_var((string)($line['unit_cost_minor']??''),FILTER_VALIDATE_INT);if(false===$unit||$unit<0)throw new InvalidArgumentException('قیمت خرید باید عدد صحیح نامنفی به واحد خرد پول باشد.');
     $variation=absint($line['variation_id']??0);$name='';$sku=null;if(function_exists('wc_get_product')){$p=wc_get_product($variation?:$product);if($p){$name=$p->get_name();$sku=$p->get_sku();}}
     $lines[]=array('product_id'=>$product,'variation_id'=>$variation,'product_name_snapshot'=>$name,'sku_snapshot'=>$sku,'quantity_scaled'=>$qty,'quantity_scale'=>1000000,'unit_cost_minor'=>(int)$unit);
    }
@@ -192,10 +238,10 @@ final class MDA_Admin {
   <div style="background:#fff;padding:18px;max-width:1100px;margin:16px 0"><h2>ثبت پیش‌نویس فاکتور خرید</h2>
   <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>"><input type="hidden" name="action" value="mda_create_purchase"><?php wp_nonce_field('mda_create_purchase'); ?>
   <p><label>تأمین‌کننده <select name="supplier_party_id" required><option value="">انتخاب تأمین‌کننده</option><?php foreach($suppliers as $s): ?><option value="<?php echo (int)$s['id']; ?>"><?php echo esc_html($s['party_code'].' — '.$s['display_name']); ?></option><?php endforeach; ?></select></label>
-  <label>انبار مقصد <select name="warehouse_id" required><?php foreach($warehouses as $w): if((int)$w['is_active']): ?><option value="<?php echo (int)$w['id']; ?>"><?php echo esc_html($w['warehouse_name']); ?></option><?php endif; endforeach; ?></select></label>
+  <label>انبار مقصد <select name="warehouse_id" required><?php foreach($warehouses as $w): if((int)$w['is_active']): ?><option value="<?php echo (int)$w['id']; ?>" <?php selected((int)$w['id'],MDA_Settings::online_warehouse_id()); ?>><?php echo esc_html($w['warehouse_name']); ?></option><?php endif; endforeach; ?></select></label>
   <label>تاریخ <input type="date" name="document_date" value="<?php echo esc_attr(current_time('Y-m-d')); ?>" required></label></p>
-  <table class="widefat striped"><thead><tr><th>شناسه محصول ووکامرس</th><th>شناسه تنوع (اختیاری)</th><th>تعداد</th><th>قیمت واحد خرید (ریال)</th></tr></thead><tbody>
-  <?php for($i=0;$i<5;$i++): ?><tr><td><input type="number" min="1" name="lines[<?php echo $i; ?>][product_id]"></td><td><input type="number" min="0" name="lines[<?php echo $i; ?>][variation_id]" value="0"></td><td><input type="text" placeholder="مثلاً 2.5" name="lines[<?php echo $i; ?>][quantity]"></td><td><input type="number" min="0" step="1" name="lines[<?php echo $i; ?>][unit_cost_minor]"></td></tr><?php endfor; ?>
+  <table class="widefat striped"><thead><tr><th style="width:50%">کالا (جستجوی نام یا SKU)</th><th>تعداد</th><th>قیمت واحد خرید (ریال)</th></tr></thead><tbody>
+  <?php for($i=0;$i<5;$i++): ?><tr><td><select class="wc-product-search" style="width:100%" name="lines[<?php echo $i; ?>][item]" data-placeholder="نام کالا یا SKU…" data-action="woocommerce_json_search_products_and_variations" data-allow_clear="true"></select></td><td><input type="text" dir="ltr" inputmode="decimal" placeholder="مثلاً 2.5" name="lines[<?php echo $i; ?>][quantity]"></td><td><input type="text" dir="ltr" inputmode="numeric" name="lines[<?php echo $i; ?>][unit_cost_minor]"></td></tr><?php endfor; ?>
   </tbody></table>
   <p><label>شرح هزینه جانبی <input class="regular-text" name="ancillary_description" value="حمل و بسته‌بندی"></label>
   <label>نوع هزینه <select name="ancillary_code"><option value="shipping">حمل</option><option value="packaging">بسته‌بندی</option><option value="other">سایر</option></select></label>
@@ -355,14 +401,14 @@ final class MDA_Admin {
  }
  public static function run_woocommerce_stock_sync(): void {
   self::guard();check_admin_referer('mda_run_woocommerce_stock_sync');
-  $warehouseId=absint($_POST['warehouse_id']??0);
+  $warehouseId=MDA_Settings::online_warehouse_id();
   try{$result=MDA_Stock_Sync_Service::run_batch($warehouseId,100);$url=add_query_arg(array('page'=>'mda-stock-sync','warehouse_id'=>$warehouseId,'run_id'=>$result['run_id'],'mda_notice'=>'stock_sync_run'),admin_url('admin.php'));}
   catch(Throwable $e){$url=add_query_arg(array('page'=>'mda-stock-sync','warehouse_id'=>$warehouseId,'mda_error'=>rawurlencode($e->getMessage())),admin_url('admin.php'));}
   wp_safe_redirect($url);exit;
  }
  public static function render_stock_sync(): void {
   self::guard();if(!MDA_Database::is_available()){echo '<div class="wrap" dir="rtl"><h1>همگام‌سازی موجودی</h1><div class="notice notice-error"><p>PDO_SQLite فعال نیست.</p></div></div>';return;}
-  $warehouses=array_values(array_filter(MDA_Stock_Sync_Service::warehouses(),static fn($w)=>(int)$w['is_active']===1));$warehouseId=absint($_GET['warehouse_id']??0);if(!$warehouseId&&$warehouses)$warehouseId=(int)$warehouses[0]['id'];
+  $onlineId=MDA_Settings::online_warehouse_id();$warehouses=array_values(array_filter(MDA_Stock_Sync_Service::warehouses(),static fn($w)=>(int)$w['is_active']===1&&(int)$w['id']===$onlineId));$warehouseId=$onlineId;
   $runs=MDA_Stock_Sync_Service::runs(30);$runId=absint($_GET['run_id']??0);$items=$runId?MDA_Stock_Sync_Service::items($runId):array();
   $pending=(int)MDA_Database::connection()->query("SELECT COUNT(*) FROM mda_integration_outbox WHERE status IN ('pending','processing','failed')")->fetchColumn();
   ?>

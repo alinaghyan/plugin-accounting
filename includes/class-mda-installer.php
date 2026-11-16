@@ -2,7 +2,7 @@
 defined( 'ABSPATH' ) || exit;
 
 final class MDA_Installer {
- public const SCHEMA_VERSION=19;
+ public const SCHEMA_VERSION=20;
  public static function activate(): void {
   if(!MDA_Database::is_available()) wp_die(esc_html__('برای نصب MaliDev Accounting باید افزونه PHP با نام PDO_SQLite فعال باشد.','malidev-accounting'),esc_html__('پیش‌نیاز نصب موجود نیست','malidev-accounting'),array('back_link'=>true));
   try { self::migrate(); MDA_Capabilities::add(); MDA_Capabilities::register_roles(); }
@@ -45,7 +45,8 @@ final class MDA_Installer {
    16=>array('016-gateway-settlements.sql','فایل مهاجرت تسویه درگاه‌ها پیدا نشد.'),
    17=>array('017-ledger-integrity-and-supply-modes.sql','فایل مهاجرت قفل دفتر کل و کالای سفارشی پیدا نشد.'),
    18=>array('018-chart-completion-backups-adjustments.sql','فایل مهاجرت تکمیل کدینگ و پشتیبان پیدا نشد.'),
-   19=>array('019-price-history.sql','فایل مهاجرت تاریخچه قیمت پیدا نشد.')
+   19=>array('019-price-history.sql','فایل مهاجرت تاریخچه قیمت پیدا نشد.'),
+   20=>array('020-warehouses-transfers-suppliers.sql','فایل مهاجرت انبارها و تأمین‌کننده کالا پیدا نشد.')
   );
   foreach($migrations as $target=>$migration){
    if($version >= $target) continue;
