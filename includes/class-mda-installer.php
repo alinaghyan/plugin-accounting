@@ -35,6 +35,5 @@ final class MDA_Installer {
    });
    $version=$target;
   }
-  update_option('mda_schema_version',self::SCHEMA_VERSION,false);
  }
 }
