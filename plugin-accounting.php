@@ -6,10 +6,12 @@
  * Requires at least: 6.3
  * Requires PHP: 8.1
  * Requires Plugins: woocommerce
+ * Author URI: https://malidev.ir/shop/
+ * Plugin URI: https://malidev.ir/product/plugin-accounting/
  * Update URI: https://malidev.ir/
  * WC requires at least: 8.0
  * WC tested up to: 10.3
- * Author: MaliDev
+ * Author: malidev.ir
  * Text Domain: malidev-accounting
  * Domain Path: /languages
  */
