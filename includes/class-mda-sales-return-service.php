@@ -43,7 +43,7 @@ final class MDA_Sales_Return_Service {
    $number='MDA-SRET-'.gmdate('Ymd').'-'.strtoupper(bin2hex(random_bytes(4)));
    $doc=$db->prepare("INSERT INTO mda_documents (document_number,document_type,document_status,party_id,source_type,source_id,idempotency_key,payload_hash,currency_code,amount_scale,document_date,description,created_by,created_at,posted_at) VALUES (:number,'sales_return','posted',:party,'sales_return',:source,:key,:hash,:currency,1,:date,:description,:user,:now,:now)");
    $doc->execute(array(':number'=>$number,':party'=>$sale['party_id'],':source'=>(string)$saleId,':key'=>'sales-return-journal-'.$key,':hash'=>$hash,':currency'=>$sale['currency_code'],':date'=>$date,':description'=>'مرجوعی فروش '.$sale['document_number'],':user'=>get_current_user_id()?:null,':now'=>$now));$journalId=(int)$db->lastInsertId();
-   $entries=array();if($productTotal>0)$entries[]=array($accounts['4110'],null,0,$productTotal,'برگشت از فروش کالا');
+   $entries=array();if($productTotal>0)$entries[]=array($accounts['4110'],null,$productTotal,0,'برگشت از فروش کالا');
    if($taxTotal>0){if(!$accounts['2200'])throw new RuntimeException('حساب مالیات پرداختنی برای برگشت مالیات تنظیم نشده است.');$entries[]=array($accounts['2200'],null,$taxTotal,0,'اصلاح مالیات فروش مرجوع‌شده');}
    $entries[]=array($accounts['1200'],(int)$sale['party_id'],0,$total,'کاهش دریافتنی / ایجاد بستانکاری مشتری بابت مرجوعی');
    if($cogsTotal>0){$entries[]=array($accounts['1300'],null,$cogsTotal,0,'افزایش موجودی کالای مرجوعی');$entries[]=array($accounts['5100'],null,0,$cogsTotal,'برگشت بهای تمام‌شده کالای مرجوعی');}
