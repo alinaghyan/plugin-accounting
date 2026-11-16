@@ -72,6 +72,7 @@ CREATE TABLE IF NOT EXISTS mda_gateway_settlement_events (
 CREATE INDEX IF NOT EXISTS idx_mda_gateway_payment_order ON mda_gateway_payments(order_id,gateway_key);
 CREATE INDEX IF NOT EXISTS idx_mda_gateway_settlement_date ON mda_gateway_settlements(settlement_date,gateway_key);
 CREATE INDEX IF NOT EXISTS idx_mda_gateway_lines_payment ON mda_gateway_settlement_lines(payment_id,settlement_id);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_mda_gateway_settlement_payment ON mda_gateway_settlement_lines(settlement_id,payment_id);
 CREATE TRIGGER IF NOT EXISTS trg_mda_gateway_payments_no_update BEFORE UPDATE ON mda_gateway_payments BEGIN SELECT RAISE(ABORT,'Gateway payments are immutable.'); END;
 CREATE TRIGGER IF NOT EXISTS trg_mda_gateway_payments_no_delete BEFORE DELETE ON mda_gateway_payments BEGIN SELECT RAISE(ABORT,'Gateway payments cannot be deleted.'); END;
 CREATE TRIGGER IF NOT EXISTS trg_mda_gateway_settlements_no_update BEFORE UPDATE ON mda_gateway_settlements BEGIN SELECT RAISE(ABORT,'Gateway settlements are immutable.'); END;
