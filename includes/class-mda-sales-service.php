@@ -16,6 +16,7 @@ final class MDA_Sales_Service {
    $existing=$db->prepare('SELECT id,document_number,accounting_document_id,payload_hash FROM mda_sales_documents WHERE order_id=:id OR idempotency_key=:key LIMIT 1');
    $existing->execute(array(':id'=>$orderId,':key'=>$key));$found=$existing->fetch();
    if($found){if(!hash_equals((string)$found['payload_hash'],$hash))throw new RuntimeException('این سفارش قبلاً با اطلاعات متفاوت ثبت حسابداری شده است؛ نیازمند تطبیق دستی است.');return array('sales_document_id'=>(int)$found['id'],'document_number'=>$found['document_number'],'accounting_document_id'=>(int)$found['accounting_document_id'],'duplicate'=>true);}
+   $closed=$db->prepare("SELECT 1 FROM mda_financial_periods WHERE status='closed' AND :date BETWEEN starts_on AND ends_on LIMIT 1");$closed->execute(array(':date'=>$date));if($closed->fetchColumn())throw new RuntimeException('ثبت فروش در دوره مالی بسته‌شده مجاز نیست.');
    $warehouse=(int)($payload['warehouse_id']??0);
    $wh=$db->prepare('SELECT id FROM mda_warehouses WHERE id=:id AND is_active=1');$wh->execute(array(':id'=>$warehouse));if(!$wh->fetchColumn())throw new RuntimeException('انبار فعال برای ثبت فروش تنظیم نشده است.');
    $partyId=self::customer_party($db,(array)($payload['customer']??array()),$orderId);
