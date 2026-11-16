@@ -16,13 +16,13 @@ final class MDA_Outbox_Service {
   }
   $shipping=0;foreach($order->get_items('shipping') as $item)$shipping+=self::money($item->get_total());
   $fees=0;foreach($order->get_items('fee') as $item)$fees+=self::money($item->get_total());
-  $payload=array('order_id'=>(int)$order->get_id(),'currency'=>$currency,'date'=>substr((string)$order->get_date_created()->date('Y-m-d'),0,10),'warehouse_id'=>$warehouse,'channel'=>in_array($order->get_created_via(),array('mda_phone','mda_in_person'),true)?($order->get_created_via()==='mda_phone'?'phone':'in_person'):'website','customer'=>array('name'=>trim($order->get_billing_first_name().' '.$order->get_billing_last_name()),'phone'=>(string)$order->get_billing_phone(),'email'=>(string)$order->get_billing_email()),'items'=>$items,'shipping_minor'=>$shipping,'fees_minor'=>$fees,'tax_minor'=>self::money($order->get_total_tax()),'total_minor'=>self::money($order->get_total()),'idempotency_key'=>'wc-sale-'.$order->get_id().'-v1');
+  $payload=array('order_id'=>(int)$order->get_id(),'currency'=>$currency,'date'=>substr((string)$order->get_date_created()->date('Y-m-d'),0,10),'warehouse_id'=>$warehouse,'channel'=>in_array($order->get_created_via(),array('mda_phone','mda_in_person'),true)?($order->get_created_via()==='mda_phone'?'phone':'in_person'):'website','customer'=>array('name'=>trim($order->get_billing_first_name().' '.$order->get_billing_last_name()),'phone'=>(string)$order->get_billing_phone(),'email'=>(string)$order->get_billing_email()),'created_by_user_id'=>(int)$order->get_meta('_mda_created_by_user_id',true),'items'=>$items,'shipping_minor'=>$shipping,'fees_minor'=>$fees,'tax_minor'=>self::money($order->get_total_tax()),'total_minor'=>self::money($order->get_total()),'idempotency_key'=>'wc-sale-'.$order->get_id().'-v1');
   $json=wp_json_encode($payload);$now=gmdate('Y-m-d H:i:s');$db=MDA_Database::connection();
   $q=$db->prepare('SELECT payload_json FROM mda_integration_outbox WHERE event_key=:key');$q->execute(array(':key'=>$payload['idempotency_key']));$existing=$q->fetchColumn();
   if($existing!==false){$old=json_decode((string)$existing,true);if(!is_array($old)||!hash_equals(hash('sha256',wp_json_encode($old)),hash('sha256',$json)))throw new RuntimeException('کلید سفارش قبلاً با snapshot متفاوتی وارد صف شده است.');return;}
   $insert=$db->prepare("INSERT INTO mda_integration_outbox (event_key,event_type,aggregate_type,aggregate_id,payload_json,status,attempts,available_at,created_at) VALUES (:key,'sale.post','woocommerce_order',:id,:payload,'pending',0,:now,:now)");
   $insert->execute(array(':key'=>$payload['idempotency_key'],':id'=>(string)$order->get_id(),':payload'=>$json,':now'=>$now));
-  if(!wp_next_scheduled('mda_process_outbox'))wp_schedule_single_event(time()+5,'mda_process_outbox');
+  if(!wp_next_scheduled('mda_process_outbox_batch'))wp_schedule_single_event(time()+5,'mda_process_outbox_batch');
  }
  public static function process_batch(int $limit=10): array {
   $db=MDA_Database::connection();$now=gmdate('Y-m-d H:i:s');
@@ -49,7 +49,7 @@ final class MDA_Outbox_Service {
    }
   }
   $remaining=(int)$db->query("SELECT COUNT(*) FROM mda_integration_outbox WHERE status IN ('pending','failed') AND attempts<max_attempts")->fetchColumn();
-  if($remaining>0&&!wp_next_scheduled('mda_process_outbox'))wp_schedule_single_event(time()+60,'mda_process_outbox');
+  if($remaining>0&&!wp_next_scheduled('mda_process_outbox'))wp_schedule_single_event(time()+60,'mda_process_outbox_batch');
   return$results;
  }
  private static function money($value): int {
