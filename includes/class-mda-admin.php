@@ -168,11 +168,11 @@ final class MDA_Admin {
   <label>صندوق/بانک <select required name="cash_account_id"><option value="">انتخاب حساب</option><?php foreach($cash as $a): ?><option value="<?php echo (int)$a['id']; ?>"><?php echo esc_html($a['account_code'].' — '.$a['account_name']); ?></option><?php endforeach; ?></select></label>
   <label>روش پرداخت <select name="payment_method"><option value="cash">نقد</option><option value="bank">بانک</option><option value="pos">کارتخوان</option><option value="transfer">انتقال</option></select></label>
   <p><button class="button button-primary">ثبت پرداخت</button></p></form><?php else: ?><p><strong>این فاکتور تسویه شده است.</strong></p><?php endif; ?>
-  <h3>ثبت مرجوعی کالا به تأمین‌کننده</h3><p>مقدار مرجوعی بر اساس موجودی قابل‌مرجوعی و بهای میانگین دفتری فعلی محاسبه می‌شود. این عملیات موجودی را کاهش داده و سند اصلاحی مستقل ایجاد می‌کند؛ وجه نقدی به‌صورت خودکار مسترد نمی‌شود.</p>
+  <h3>ثبت مرجوعی کالا به تأمین‌کننده</h3><p>مقدار مرجوعی بر اساس موجودی قابل‌مرجوعی و بهای میانگین دفتری فعلی محاسبه می‌شود. برای یک کالا/تنوع که در چند ردیف فاکتور آمده، در هر سند فقط یکی از ردیف‌ها را انتخاب کنید. این عملیات موجودی را کاهش داده و سند اصلاحی مستقل ایجاد می‌کند؛ وجه نقدی به‌صورت خودکار مسترد نمی‌شود.</p>
   <?php
   $returnedQuery=$db->prepare('SELECT COALESCE(SUM(rl.quantity_scaled),0) FROM mda_purchase_return_lines rl JOIN mda_purchase_returns r ON r.id=rl.return_id WHERE rl.purchase_line_id=:line');
   $stockQuery=$db->prepare('SELECT COALESCE(SUM(quantity_scaled),0) FROM mda_inventory_movements WHERE product_id=:product AND variation_id=:variation AND warehouse_id=:warehouse AND quantity_scale=:scale');
-  $returnRows=$db->prepare('SELECT r.return_number,r.document_date,r.total_minor,rl.product_id,rl.variation_id,rl.quantity_scaled,rl.quantity_scale FROM mda_purchase_returns r JOIN mda_purchase_return_lines rl ON rl.return_id=r.id WHERE r.purchase_id=:id ORDER BY r.id,rl.id');
+  $returnRows=$db->prepare('SELECT r.return_number,r.document_date,rl.line_total_minor,rl.product_id,rl.variation_id,rl.quantity_scaled,rl.quantity_scale FROM mda_purchase_returns r JOIN mda_purchase_return_lines rl ON rl.return_id=r.id WHERE r.purchase_id=:id ORDER BY r.id,rl.id');
   $returnRows->execute(array(':id'=>$posted['id']));$returnHistory=$returnRows->fetchAll();
   ?>
   <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>"><input type="hidden" name="action" value="mda_post_purchase_return"><input type="hidden" name="purchase_id" value="<?php echo (int)$posted['id']; ?>"><?php wp_nonce_field('mda_post_purchase_return_'.(int)$posted['id']); ?>
@@ -186,7 +186,7 @@ final class MDA_Admin {
   <?php endforeach; ?></tbody></table>
   <p><label>تاریخ مرجوعی <input type="date" required name="return_date" value="<?php echo esc_attr(current_time('Y-m-d')); ?>"></label></p>
   <p><button class="button button-secondary" onclick="return confirm('سند مرجوعی قطعی و خروج موجودی ثبت شود؟')">ثبت مرجوعی و سند اصلاحی</button></p></form>
-  <?php if($returnHistory): ?><h3>سوابق مرجوعی</h3><table class="widefat striped"><thead><tr><th>شماره سند</th><th>تاریخ</th><th>محصول</th><th>مقدار</th><th>مبلغ سند (ریال)</th></tr></thead><tbody><?php foreach($returnHistory as $rh): ?><tr><td><?php echo esc_html($rh['return_number']); ?></td><td><?php echo esc_html($rh['document_date']); ?></td><td><?php echo esc_html('#'.$rh['product_id'].' / '.$rh['variation_id']); ?></td><td><?php echo esc_html(number_format((int)$rh['quantity_scaled']/(int)$rh['quantity_scale'],6)); ?></td><td><?php echo esc_html($fmt($rh['total_minor'])); ?></td></tr><?php endforeach; ?></tbody></table><?php endif; ?>
+  <?php if($returnHistory): ?><h3>سوابق مرجوعی</h3><table class="widefat striped"><thead><tr><th>شماره سند</th><th>تاریخ</th><th>محصول</th><th>مقدار</th><th>مبلغ سند (ریال)</th></tr></thead><tbody><?php foreach($returnHistory as $rh): ?><tr><td><?php echo esc_html($rh['return_number']); ?></td><td><?php echo esc_html($rh['document_date']); ?></td><td><?php echo esc_html('#'.$rh['product_id'].' / '.$rh['variation_id']); ?></td><td><?php echo esc_html(number_format((int)$rh['quantity_scaled']/(int)$rh['quantity_scale'],6)); ?></td><td><?php echo esc_html($fmt($rh['line_total_minor'])); ?></td></tr><?php endforeach; ?></tbody></table><?php endif; ?>
   <p><a class="button" href="<?php echo esc_url(admin_url('admin.php?page=mda-purchases')); ?>">بازگشت به فهرست خرید</a></p></div>
   <?php endif; ?>
   <h2>فاکتورهای خرید</h2><table class="widefat striped"><thead><tr><th>شماره</th><th>تاریخ</th><th>تأمین‌کننده</th><th>مبلغ کل</th><th>پرداخت</th><th>وضعیت</th><th>عملیات</th></tr></thead><tbody>
@@ -276,7 +276,11 @@ final class MDA_Admin {
  }
 
  private static function notices(): void {
-  if(!empty($_GET['mda_notice'])) echo '<div class="notice notice-success"><p>'.esc_html('عملیات با موفقیت انجام شد.').'</p></div>';
+  if(!empty($_GET['mda_notice'])) {
+   $messages=array('party_saved'=>'طرف‌حساب ذخیره شد.','party_archived'=>'طرف‌حساب بایگانی شد.','account_saved'=>'حساب ذخیره شد.','purchase_draft_created'=>'پیش‌نویس خرید ایجاد شد.','purchase_posted'=>'فاکتور قطعی و موجودی ثبت شد.','purchase_already_posted'=>'این فاکتور قبلاً قطعی شده است.','payment_recorded'=>'پرداخت مرحله‌ای ثبت شد.','payment_duplicate'=>'این پرداخت قبلاً ثبت شده است.','purchase_return_posted'=>'مرجوعی و سند اصلاحی ثبت شد.');
+   $key=sanitize_key(wp_unslash($_GET['mda_notice']));$message=$messages[$key]??'عملیات با موفقیت انجام شد.';
+   echo '<div class="notice notice-success"><p>'.esc_html($message).'</p></div>';
+  }
   if(!empty($_GET['mda_error'])) echo '<div class="notice notice-error"><p>'.esc_html(sanitize_text_field(wp_unslash($_GET['mda_error']))).'</p></div>';
  }
 }
