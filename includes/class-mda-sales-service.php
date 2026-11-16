@@ -30,7 +30,7 @@ final class MDA_Sales_Service {
     $state->execute(array(':product'=>$product,':variation'=>$variation,':warehouse'=>$warehouse));$cost=$state->fetch();
     $stock=$db->prepare('SELECT COALESCE(SUM(quantity_scaled),0) FROM mda_inventory_movements WHERE product_id=:product AND variation_id=:variation AND warehouse_id=:warehouse AND quantity_scale=:scale');
     $stock->execute(array(':product'=>$product,':variation'=>$variation,':warehouse'=>$warehouse));$stockQty=(int)$stock->fetchColumn();
-    if(!$cost||(int)$cost['quantity_scale']!==$scale||(int)$cost['quantity_scaled']!==$stockQty||$cost['currency_code']!==$currency)throw new RuntimeException('بهای تمام‌شده یا کاردکس کالا با موجودی انبار سازگار نیست؛ فروش حسابداری متوقف شد. '.wp_json_encode(array('cost_state'=>$cost,'ledger_quantity'=>$stockQty,'requested_scale'=>$scale,'currency'=>$currency)));
+    if(!$cost||(int)$cost['quantity_scale']!==$scale||(int)$cost['quantity_scaled']!==$stockQty||$cost['currency_code']!==$currency)throw new RuntimeException('بهای تمام‌شده یا کاردکس کالا با موجودی انبار سازگار نیست؛ فروش حسابداری متوقف شد. '.wp_json_encode(array('cost_state'=>$cost,'ledger_quantity'=>$stockQty,'requested_scale'=>$scale,'currency'=>$currency,'product'=>$product,'variation'=>$variation,'warehouse'=>$warehouse,'stock_scale_filter'=>$scale,'ledger_row_count'=>(int)$db->query('SELECT COUNT(*) FROM mda_inventory_movements')->fetchColumn())));
     if($qty>$stockQty)throw new RuntimeException('موجودی حسابداری برای یکی از کالاهای سفارش کافی نیست.');
     $unitCost=(int)$cost['average_cost_minor'];$cogs=self::mulDivRound($qty,$unitCost,$scale);
     $productTotal=self::safeAdd($productTotal,$revenue);$costTotal=self::safeAdd($costTotal,$cogs);
