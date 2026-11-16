@@ -23,7 +23,6 @@ require_once dirname(__DIR__).'/includes/class-mda-reconciliation-service.php';
 require_once dirname(__DIR__).'/includes/class-mda-stock-sync-service.php';
 require_once dirname(__DIR__).'/includes/class-mda-report-service.php';
 require_once dirname(__DIR__).'/includes/class-mda-cash-service.php';
-require_once dirname(__DIR__).'/includes/class-mda-cash-service.php';
 class WooCommerce {}
 final class SmokeWCDate { public function date($format){return gmdate($format,strtotime('2026-11-16 10:00:00'));} }
 final class SmokeWCProduct { public static string $stock='8'; public static string $stockStatus='instock'; public function get_sku(){return 'T-502';} public function managing_stock(){return true;} public function get_manage_stock(){return true;} public function get_stock_quantity(){return self::$stock;} public function set_stock_quantity($value){self::$stock=(string)$value;} public function set_stock_status($value){self::$stockStatus=(string)$value;} public function save(){return 1;} }
@@ -128,4 +127,5 @@ $bankBalance=$cashBalance;$bankBalance->execute(array(':account'=>$bankAccount))
 if(count(MDA_Cash_Service::transactions(100))!==3)throw new RuntimeException('Cash transaction history is incomplete.');
 try{$db->exec("UPDATE mda_cash_transactions SET amount_minor=1 WHERE id=".(int)$cashReceipt['transaction_id']);throw new RuntimeException('Posted cash transaction was mutable.');}catch(PDOException $expected){}
 $allJournal=$db->query('SELECT SUM(debit_minor) debit,SUM(credit_minor) credit FROM mda_journal_entries')->fetch();if((int)$allJournal['debit']!==(int)$allJournal['credit'])throw new RuntimeException('Cash/bank journals are not balanced.');
+$cashPl=MDA_Report_Service::profit_and_loss('2026-11-16','2026-11-16');if(($cashPl['totals']['IRR']['net_profit_minor']??null)!==5500)throw new RuntimeException('Cash income and operating expense did not flow into profit and loss correctly.');
 echo "OK: Outbox processing, sales posting, balanced journal, weighted-average COGS, stock issue, immutable snapshots, customer receipts, sales returns, COGS reversal, inventory restoration, customer refunds cash receipts, expense payments, transfers, cash balances, overdraft protection and idempotency passed.\\n";
