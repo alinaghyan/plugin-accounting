@@ -1,0 +1,14 @@
+# Local/editor files
+.DS_Store
+.idea/
+.vscode/
+*.log
+*.sqlite
+*.sqlite3
+*.db
+*.db-wal
+*.db-shm
+/vendor/
+.phpunit.cache/
+.phpunit.result.cache
+.env

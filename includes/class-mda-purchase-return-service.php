@@ -1,0 +1,55 @@
+<?php
+defined( 'ABSPATH' ) || exit;
+
+/** Immutable partial/full supplier returns; stock is issued at its current carrying average. */
+final class MDA_Purchase_Return_Service {
+ public static function post(int $purchaseId,array $lines,string $idempotencyKey,?string $returnDate=null): array {
+  if($purchaseId<1||!$lines||count($lines)>200||strlen($idempotencyKey)<8||strlen($idempotencyKey)>191)throw new InvalidArgumentException('اطلاعات مرجوعی معتبر نیست.');
+  $date=$returnDate?:current_time('Y-m-d');$parsed=DateTimeImmutable::createFromFormat('!Y-m-d',$date);if(!$parsed||$parsed->format('Y-m-d')!==$date)throw new InvalidArgumentException('تاریخ مرجوعی معتبر نیست.');
+  $clean=array();foreach($lines as $line){$lineId=(int)($line['purchase_line_id']??0);$qty=$line['quantity_scaled']??null;if($lineId<1||!is_int($qty)||$qty<1)throw new InvalidArgumentException('ردیف یا مقدار مرجوعی معتبر نیست.');$clean[]=array('purchase_line_id'=>$lineId,'quantity_scaled'=>$qty);}
+  usort($clean,static fn($a,$b)=>$a['purchase_line_id']<=>$b['purchase_line_id']);$hash=hash('sha256',wp_json_encode(array($purchaseId,$date,$clean)));$now=gmdate('Y-m-d H:i:s');
+  return MDA_Database::transaction(static function(PDO $db)use($purchaseId,$clean,$idempotencyKey,$date,$hash,$now):array {
+   $old=$db->prepare('SELECT id,payload_hash,accounting_document_id,total_minor FROM mda_purchase_returns WHERE idempotency_key=:key');$old->execute(array(':key'=>$idempotencyKey));$existing=$old->fetch();if($existing){if(!hash_equals((string)$existing['payload_hash'],$hash))throw new RuntimeException('کلید یکتا برای مرجوعی دیگری استفاده شده است.');return array('return_id'=>(int)$existing['id'],'document_id'=>(int)$existing['accounting_document_id'],'total_minor'=>(int)$existing['total_minor'],'duplicate'=>true);}
+   $q=$db->prepare("SELECT * FROM mda_purchase_documents WHERE id=:id AND document_status='posted'");$q->execute(array(':id'=>$purchaseId));$purchase=$q->fetch();if(!$purchase)throw new RuntimeException('فقط فاکتور خرید قطعی قابل مرجوعی است.');
+   $closed=$db->prepare("SELECT 1 FROM mda_financial_periods WHERE status='closed' AND :date BETWEEN starts_on AND ends_on");$closed->execute(array(':date'=>$date));if($closed->fetchColumn())throw new RuntimeException('ثبت مرجوعی در دوره مالی بسته‌شده مجاز نیست.');
+   $party=$db->prepare("SELECT 1 FROM mda_parties p JOIN mda_party_roles r ON r.party_id=p.id AND r.role_key='supplier' WHERE p.id=:id AND p.is_active=1 AND p.archived_at IS NULL");$party->execute(array(':id'=>$purchase['supplier_party_id']));if(!$party->fetchColumn())throw new RuntimeException('تأمین‌کننده فاکتور معتبر یا فعال نیست.');
+   $ap=$db->prepare("SELECT id FROM mda_accounts WHERE account_code='2100' AND account_type='liability' AND is_active=1 AND archived_at IS NULL AND is_control=1");$ap->execute();$apId=(int)$ap->fetchColumn();
+   $inventory=$db->prepare("SELECT id FROM mda_accounts WHERE account_code='1300' AND account_type='asset' AND is_active=1 AND archived_at IS NULL AND is_control=0");$inventory->execute();$inventoryId=(int)$inventory->fetchColumn();if(!$apId||!$inventoryId)throw new RuntimeException('حساب‌های پرداختنی یا موجودی کالا تنظیم نشده‌اند.');
+   $mapping=$db->prepare("SELECT 1 FROM mda_party_control_accounts WHERE role_key='supplier' AND account_id=:id");$mapping->execute(array(':id'=>$apId));if(!$mapping->fetchColumn())throw new RuntimeException('حساب پرداختنی به تفصیلی تأمین‌کنندگان متصل نیست.');
+   $total=0;$prepared=array();$seenStockKeys=array();
+   $source=$db->prepare('SELECT * FROM mda_purchase_lines WHERE id=:line AND purchase_id=:purchase');
+   $returned=$db->prepare('SELECT COALESCE(SUM(rl.quantity_scaled),0) FROM mda_purchase_return_lines rl JOIN mda_purchase_returns r ON r.id=rl.return_id WHERE rl.purchase_line_id=:line');
+   $stock=$db->prepare('SELECT COALESCE(SUM(quantity_scaled),0) FROM mda_inventory_movements WHERE product_id=:product AND variation_id=:variation AND warehouse_id=:warehouse AND quantity_scale=:scale');
+   $state=$db->prepare('SELECT quantity_scaled,quantity_scale,average_cost_minor,currency_code FROM mda_product_cost_state WHERE product_id=:product AND variation_id=:variation AND warehouse_id=:warehouse');
+   foreach($clean as $line){$source->execute(array(':line'=>$line['purchase_line_id'],':purchase'=>$purchaseId));$original=$source->fetch();if(!$original)throw new InvalidArgumentException('ردیف مرجوعی متعلق به این فاکتور نیست.');$stockKey=(int)$original['product_id'].':'.(int)$original['variation_id'];if(isset($seenStockKeys[$stockKey]))throw new InvalidArgumentException('در یک سند مرجوعی، کالا/تنوع تکراری را در یک ردیف تجمیع کنید.');$seenStockKeys[$stockKey]=true;
+    $returned->execute(array(':line'=>$original['id']));$already=(int)$returned->fetchColumn();$remaining=(int)$original['quantity_scaled']-$already;$qty=$line['quantity_scaled'];if($qty>$remaining)throw new RuntimeException('مقدار مرجوعی از مقدار خریدِ مرجوع‌نشده بیشتر است.');
+    $scale=(int)$original['quantity_scale'];$stock->execute(array(':product'=>$original['product_id'],':variation'=>$original['variation_id'],':warehouse'=>$purchase['warehouse_id'],':scale'=>$scale));$balance=(int)$stock->fetchColumn();
+    $state->execute(array(':product'=>$original['product_id'],':variation'=>$original['variation_id'],':warehouse'=>$purchase['warehouse_id']));$cost=$state->fetch();if(!$cost||(int)$cost['quantity_scale']!==$scale||(int)$cost['quantity_scaled']!==$balance||$cost['currency_code']!==$purchase['currency_code'])throw new RuntimeException('وضعیت موجودی/بهای تمام‌شده ناسازگار یا نامشخص است؛ مرجوعی متوقف شد.');
+    if($qty>$balance)throw new RuntimeException('موجودی قابل مرجوعی در انبار کافی نیست.');
+    $unit=(int)$cost['average_cost_minor'];$value=self::mulDivRound($qty,$unit,$scale);if($value<1)throw new RuntimeException('ارزش مرجوعی با مقیاس فعلی صفر می‌شود؛ عملیات نیازمند بررسی دستی است.');$total=self::safeAdd($total,$value);
+    $prepared[]=array('source'=>$original,'qty'=>$qty,'scale'=>$scale,'unit'=>$unit,'value'=>$value,'old_qty'=>$balance,'new_qty'=>$balance-$qty);
+   }
+   if($total<1)throw new RuntimeException('مبلغ مرجوعی باید مثبت باشد.');
+   $number='MDA-RET-'.gmdate('Ymd').'-'.strtoupper(bin2hex(random_bytes(4)));
+   $doc=$db->prepare("INSERT INTO mda_documents (document_number,document_type,document_status,party_id,source_type,source_id,idempotency_key,payload_hash,currency_code,amount_scale,document_date,description,created_by,created_at,posted_at) VALUES (:number,'purchase_return','posted',:party,'purchase_return',:source,:key,:hash,:currency,1,:date,:description,:user,:now,:now)");
+   $doc->execute(array(':number'=>$number,':party'=>$purchase['supplier_party_id'],':source'=>(string)$purchaseId,':key'=>'purchase-return-journal-'.$idempotencyKey,':hash'=>$hash,':currency'=>$purchase['currency_code'],':date'=>$date,':description'=>'سند اصلاحی مرجوعی خرید '.$purchase['document_number'],':user'=>get_current_user_id()?:null,':now'=>$now));$journalId=(int)$db->lastInsertId();
+   $entry=$db->prepare('INSERT INTO mda_journal_entries (document_id,entry_number,account_id,party_id,debit_minor,credit_minor,memo,created_at) VALUES (:doc,:n,:account,:party,:debit,:credit,:memo,:now)');
+   $entry->execute(array(':doc'=>$journalId,':n'=>1,':account'=>$apId,':party'=>$purchase['supplier_party_id'],':debit'=>$total,':credit'=>0,':memo'=>'کاهش بدهی بابت مرجوعی خرید',':now'=>$now));
+   $entry->execute(array(':doc'=>$journalId,':n'=>2,':account'=>$inventoryId,':party'=>null,':debit'=>0,':credit'=>$total,':memo'=>'خروج موجودی بابت مرجوعی به تأمین‌کننده',':now'=>$now));
+   $head=$db->prepare('INSERT INTO mda_purchase_returns (return_number,purchase_id,supplier_party_id,warehouse_id,document_date,currency_code,total_minor,idempotency_key,payload_hash,accounting_document_id,created_by,created_at) VALUES (:number,:purchase,:supplier,:warehouse,:date,:currency,:total,:key,:hash,:journal,:user,:now)');
+   $head->execute(array(':number'=>$number,':purchase'=>$purchaseId,':supplier'=>$purchase['supplier_party_id'],':warehouse'=>$purchase['warehouse_id'],':date'=>$date,':currency'=>$purchase['currency_code'],':total'=>$total,':key'=>$idempotencyKey,':hash'=>$hash,':journal'=>$journalId,':user'=>get_current_user_id()?:null,':now'=>$now));$returnId=(int)$db->lastInsertId();
+   $insertLine=$db->prepare('INSERT INTO mda_purchase_return_lines (return_id,purchase_line_id,product_id,variation_id,quantity_scaled,quantity_scale,unit_cost_minor,line_total_minor,created_at) VALUES (:return,:line,:product,:variation,:qty,:scale,:unit,:total,:now)');
+   $movement=$db->prepare("INSERT INTO mda_inventory_movements (product_id,variation_id,warehouse_id,movement_type,quantity_scaled,quantity_scale,unit_cost_minor,currency_code,source_type,source_id,idempotency_key,occurred_at,created_by) VALUES (:product,:variation,:warehouse,'supplier_return',:qty,:scale,:unit,:currency,'purchase_return',:source,:key,:now,:user)");
+   $update=$db->prepare('UPDATE mda_product_cost_state SET quantity_scaled=:qty,average_cost_minor=:cost,updated_at=:now WHERE product_id=:product AND variation_id=:variation AND warehouse_id=:warehouse');
+   foreach($prepared as $i=>$item){$s=$item['source'];$insertLine->execute(array(':return'=>$returnId,':line'=>$s['id'],':product'=>$s['product_id'],':variation'=>$s['variation_id'],':qty'=>$item['qty'],':scale'=>$item['scale'],':unit'=>$item['unit'],':total'=>$item['value'],':now'=>$now));
+    $movement->execute(array(':product'=>$s['product_id'],':variation'=>$s['variation_id'],':warehouse'=>$purchase['warehouse_id'],':qty'=>-$item['qty'],':scale'=>$item['scale'],':unit'=>$item['unit'],':currency'=>$purchase['currency_code'],':source'=>(string)$returnId,':key'=>'supplier-return-'.$returnId.'-'.$s['id'],':now'=>$now,':user'=>get_current_user_id()?:null));
+    $update->execute(array(':qty'=>$item['new_qty'],':cost'=>$item['new_qty']===0?0:$item['unit'],':now'=>$now,':product'=>$s['product_id'],':variation'=>$s['variation_id'],':warehouse'=>$purchase['warehouse_id']));
+   }
+   $audit=$db->prepare('INSERT INTO mda_audit_logs (user_id,action,object_type,object_id,after_json,created_at) VALUES (:user,:action,:type,:id,:json,:now)');
+   $audit->execute(array(':user'=>get_current_user_id()?:null,':action'=>'purchase_return_posted',':type'=>'purchase_return',':id'=>(string)$returnId,':json'=>wp_json_encode(array('purchase_id'=>$purchaseId,'total_minor'=>$total,'journal_id'=>$journalId)),':now'=>$now));
+   return array('return_id'=>$returnId,'document_id'=>$journalId,'total_minor'=>$total,'duplicate'=>false);
+  });
+ }
+ private static function safeAdd(int $a,int $b):int {if($b>0&&$a>PHP_INT_MAX-$b)throw new OverflowException('مبلغ مرجوعی بیش از ظرفیت عدد صحیح است.');return $a+$b;}
+ private static function mulDivRound(int $a,int $b,int $divisor):int {if($divisor<1||$a<0||$b<0||($a>0&&$b>intdiv(PHP_INT_MAX,$a)))throw new OverflowException('محاسبه بهای مرجوعی خارج از ظرفیت عدد صحیح است.');$v=$a*$b;$q=intdiv($v,$divisor);$r=$v%$divisor;if($r>=intdiv($divisor,2)+($divisor%2))$q++;return$q;}
+}
