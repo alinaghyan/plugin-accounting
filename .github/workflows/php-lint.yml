@@ -31,3 +31,5 @@ jobs:
         run: php tests/purchase-settlements-returns-smoke.php
       - name: Sales outbox and COGS integration smoke test
         run: php tests/sales-outbox-cogs-smoke.php
+      - name: Cheque lifecycle integration smoke test
+        run: php tests/cheque-management-smoke.php
