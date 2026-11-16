@@ -1,7 +1,7 @@
 <?php
 defined( 'ABSPATH' ) || exit;
 
-/** Durable SQLite outbox. A sale is posted atomically with marking its event completed. */
+/** Durable SQLite outbox with retry-safe, idempotent sale posting. */
 final class MDA_Outbox_Service {
  public static function enqueue_order($order): void {
   if(!$order||!is_object($order)||!method_exists($order,'get_id'))return;
