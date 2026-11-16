@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" role="img" aria-labelledby="mda-icon-title">
+  <title id="mda-icon-title">MaliDev Accounting</title>
+  <defs>
+    <linearGradient id="mda-bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#7b73f0"/>
+      <stop offset="1" stop-color="#3f37b0"/>
+    </linearGradient>
+    <linearGradient id="mda-coin" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffd76a"/>
+      <stop offset="1" stop-color="#f2a93b"/>
+    </linearGradient>
+    <linearGradient id="mda-shine" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#fff" stop-opacity="0"/>
+      <stop offset=".5" stop-color="#fff" stop-opacity=".35"/>
+      <stop offset="1" stop-color="#fff" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="mda-gloss" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".18"/><stop offset=".5" stop-color="#fff" stop-opacity="0"/></linearGradient>
+    <clipPath id="mda-clip"><rect x="8" y="8" width="240" height="240" rx="56"/></clipPath>
+    <style>
+      .bar{transform-box:fill-box;transform-origin:50% 100%;animation:mda-grow 4s cubic-bezier(.3,.7,.2,1) infinite}
+      .b2{animation-delay:.15s}.b3{animation-delay:.3s}
+      .trend{stroke-dasharray:150;stroke-dashoffset:150;animation:mda-draw 4s ease-in-out infinite}
+      .coin{transform-box:fill-box;transform-origin:50% 50%;animation:mda-coin 4s ease-in-out infinite}
+      .row{transform-box:fill-box;transform-origin:100% 50%;animation:mda-write 4s ease-out infinite}
+      .r2{animation-delay:.2s}.r3{animation-delay:.4s}
+      .dot{animation:mda-dot 4s ease-in-out infinite}
+      .shine{animation:mda-shine 4s ease-in-out infinite}
+      @keyframes mda-grow{0%,8%{transform:scaleY(.15)}35%,85%{transform:scaleY(1)}100%{transform:scaleY(.15)}}
+      @keyframes mda-draw{0%,25%{stroke-dashoffset:150}55%,85%{stroke-dashoffset:0}100%{stroke-dashoffset:150}}
+      @keyframes mda-coin{0%,45%{transform:translateY(0) scaleX(1)}55%{transform:translateY(-10px) scaleX(.15)}65%{transform:translateY(-10px) scaleX(1)}75%,100%{transform:translateY(0) scaleX(1)}}
+      @keyframes mda-write{0%{transform:scaleX(0)}25%,85%{transform:scaleX(1)}100%{transform:scaleX(0)}}
+      @keyframes mda-dot{0%,50%{opacity:0}58%,85%{opacity:1}100%{opacity:0}}
+      @keyframes mda-shine{0%,60%{transform:translateX(-260px)}90%,100%{transform:translateX(260px)}}
+      @media (prefers-reduced-motion:reduce){.bar,.trend,.coin,.row,.dot{animation:mda-dot 4s ease-in-out infinite}
+      .shine{animation:none}.trend{stroke-dashoffset:0}}
+    </style>
+  </defs>
+
+  <!-- tile -->
+  <rect x="8" y="8" width="240" height="240" rx="56" fill="url(#mda-bg)"/>
+  <rect x="8" y="8" width="240" height="240" rx="56" fill="url(#mda-gloss)"/>
+
+  <!-- ledger sheet -->
+  <g transform="translate(46 44)">
+    <rect width="124" height="156" rx="16" fill="#fff"/>
+    <rect width="124" height="34" rx="16" fill="#eceafd"/>
+    <rect y="18" width="124" height="16" fill="#eceafd"/>
+    <circle cx="104" cy="17" r="6" fill="#635bdb"/>
+    <rect x="18" y="13" width="56" height="8" rx="4" fill="#635bdb" opacity=".55"/>
+    <!-- ledger rows (RTL: written from the right) -->
+    <rect class="row r1" x="18" y="48" width="88" height="7" rx="3.5" fill="#c9c6f3"/>
+    <rect class="row r2" x="38" y="64" width="68" height="7" rx="3.5" fill="#c9c6f3"/>
+    <rect class="row r3" x="28" y="80" width="78" height="7" rx="3.5" fill="#c9c6f3"/>
+    <!-- bars -->
+    <rect class="bar b1" x="22" y="118" width="16" height="22" rx="4" fill="#9a94f2"/>
+    <rect class="bar b2" x="48" y="104" width="16" height="36" rx="4" fill="#7b73f0"/>
+    <rect class="bar b3" x="74" y="94"  width="16" height="46" rx="4" fill="#4c45bd"/>
+    <!-- trend line -->
+    <polyline class="trend" points="20,124 50,108 72,112 104,86" fill="none" stroke="#149b72" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle class="dot" cx="104" cy="86" r="5" fill="#149b72"/>
+  </g>
+
+  <!-- coin -->
+  <g class="coin">
+    <circle cx="184" cy="178" r="34" fill="url(#mda-coin)" stroke="#fff" stroke-width="5"/>
+    <circle cx="184" cy="178" r="24" fill="none" stroke="#b56d12" stroke-opacity=".35" stroke-width="3"/>
+    <!-- check mark = balanced books -->
+    <path d="M171 179 l9 9 l17 -19" fill="none" stroke="#7a4708" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+
+  <!-- shine sweep -->
+  <g clip-path="url(#mda-clip)"><g transform="rotate(20 128 128)"><rect class="shine" x="0" y="-60" width="70" height="380" fill="url(#mda-shine)"/></g></g>
+</svg>

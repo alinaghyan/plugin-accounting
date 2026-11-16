@@ -9,7 +9,7 @@ final class MDA_Phone_Sales_Admin {
   add_action('admin_post_mda_retry_outbox_event',array(__CLASS__,'retry_outbox_event'));
  }
  public static function menu(): void {
-  add_submenu_page('mda-accounting','فروش تلفنی / حضوری','فروش تلفنی / حضوری',MDA_Capabilities::for_page('mda-phone-sales'),'mda-phone-sales',array(__CLASS__,'render'));
+  add_submenu_page(MDA_Admin_Shell::HIDDEN_PARENT,'فروش تلفنی / حضوری','فروش تلفنی / حضوری',MDA_Capabilities::for_page('mda-phone-sales'),'mda-phone-sales',array(__CLASS__,'render'));
  }
  private static function guard(): void {if(!MDA_Capabilities::user_can_action())wp_die(esc_html__('شما اجازه دسترسی به این بخش را ندارید.','malidev-accounting'));}
  public static function render(): void {

@@ -27,18 +27,17 @@ final class MDA_Admin {
  }
 
  public static function menu(): void {
-  add_menu_page(__('حسابداری MaliDev','malidev-accounting'),__('حسابداری','malidev-accounting'),MDA_Capabilities::for_page('mda-accounting'),'mda-accounting',array(__CLASS__,'render'),'dashicons-chart-area',56);
-  add_submenu_page('mda-accounting','طرف‌حساب‌ها','طرف‌حساب‌ها',MDA_Capabilities::for_page('mda-parties'),'mda-parties',array(__CLASS__,'render_parties'));
-  add_submenu_page('mda-accounting','کدینگ حساب‌ها','کدینگ حساب‌ها',MDA_Capabilities::for_page('mda-accounts'),'mda-accounts',array(__CLASS__,'render_accounts'));
-  add_submenu_page('mda-accounting','گردش حساب اشخاص','گردش حساب اشخاص',MDA_Capabilities::for_page('mda-party-ledger'),'mda-party-ledger',array(__CLASS__,'render_party_ledger'));
-  add_submenu_page('mda-accounting','خرید و فاکتور خرید','خرید و انبار',MDA_Capabilities::for_page('mda-purchases'),'mda-purchases',array(__CLASS__,'render_purchases'));
-  add_submenu_page('mda-accounting','دریافت از مشتری','دریافت از مشتری',MDA_Capabilities::for_page('mda-sales-receipts'),'mda-sales-receipts',array(__CLASS__,'render_sales_receipts'));
-  add_submenu_page('mda-accounting','مرجوعی فروش و استرداد','مرجوعی فروش',MDA_Capabilities::for_page('mda-sales-returns'),'mda-sales-returns',array(__CLASS__,'render_sales_returns'));
-  add_submenu_page('mda-accounting','تطبیق سفارش‌های ووکامرس','تطبیق سفارش‌ها',MDA_Capabilities::for_page('mda-reconciliation'),'mda-reconciliation',array(__CLASS__,'render_reconciliation'));
-  add_submenu_page('mda-accounting','همگام‌سازی موجودی ووکامرس','همگام‌سازی موجودی',MDA_Capabilities::for_page('mda-stock-sync'),'mda-stock-sync',array(__CLASS__,'render_stock_sync'));
-  add_submenu_page('mda-accounting','گزارش‌های مالی','گزارش‌های مالی',MDA_Capabilities::for_page('mda-reports'),'mda-reports',array(__CLASS__,'render_reports'));
-  add_submenu_page('mda-accounting','صندوق، بانک و هزینه‌ها','صندوق و بانک',MDA_Capabilities::for_page('mda-cashbook'),'mda-cashbook',array(__CLASS__,'render_cashbook'));
-  add_submenu_page('mda-accounting','مغایرت‌گیری بانکی','مغایرت‌گیری بانکی',MDA_Capabilities::for_page('mda-bank-reconciliation'),'mda-bank-reconciliation',array(__CLASS__,'render_bank_reconciliation'));
+  add_submenu_page(MDA_Admin_Shell::HIDDEN_PARENT,'طرف‌حساب‌ها','طرف‌حساب‌ها',MDA_Capabilities::for_page('mda-parties'),'mda-parties',array(__CLASS__,'render_parties'));
+  add_submenu_page(MDA_Admin_Shell::HIDDEN_PARENT,'کدینگ حساب‌ها','کدینگ حساب‌ها',MDA_Capabilities::for_page('mda-accounts'),'mda-accounts',array(__CLASS__,'render_accounts'));
+  add_submenu_page(MDA_Admin_Shell::HIDDEN_PARENT,'گردش حساب اشخاص','گردش حساب اشخاص',MDA_Capabilities::for_page('mda-party-ledger'),'mda-party-ledger',array(__CLASS__,'render_party_ledger'));
+  add_submenu_page(MDA_Admin_Shell::HIDDEN_PARENT,'خرید و فاکتور خرید','خرید و انبار',MDA_Capabilities::for_page('mda-purchases'),'mda-purchases',array(__CLASS__,'render_purchases'));
+  add_submenu_page(MDA_Admin_Shell::HIDDEN_PARENT,'دریافت از مشتری','دریافت از مشتری',MDA_Capabilities::for_page('mda-sales-receipts'),'mda-sales-receipts',array(__CLASS__,'render_sales_receipts'));
+  add_submenu_page(MDA_Admin_Shell::HIDDEN_PARENT,'مرجوعی فروش و استرداد','مرجوعی فروش',MDA_Capabilities::for_page('mda-sales-returns'),'mda-sales-returns',array(__CLASS__,'render_sales_returns'));
+  add_submenu_page(MDA_Admin_Shell::HIDDEN_PARENT,'تطبیق سفارش‌های ووکامرس','تطبیق سفارش‌ها',MDA_Capabilities::for_page('mda-reconciliation'),'mda-reconciliation',array(__CLASS__,'render_reconciliation'));
+  add_submenu_page(MDA_Admin_Shell::HIDDEN_PARENT,'همگام‌سازی موجودی ووکامرس','همگام‌سازی موجودی',MDA_Capabilities::for_page('mda-stock-sync'),'mda-stock-sync',array(__CLASS__,'render_stock_sync'));
+  add_submenu_page(MDA_Admin_Shell::HIDDEN_PARENT,'گزارش‌های مالی','گزارش‌های مالی',MDA_Capabilities::for_page('mda-reports'),'mda-reports',array(__CLASS__,'render_reports'));
+  add_submenu_page(MDA_Admin_Shell::HIDDEN_PARENT,'صندوق، بانک و هزینه‌ها','صندوق و بانک',MDA_Capabilities::for_page('mda-cashbook'),'mda-cashbook',array(__CLASS__,'render_cashbook'));
+  add_submenu_page(MDA_Admin_Shell::HIDDEN_PARENT,'مغایرت‌گیری بانکی','مغایرت‌گیری بانکی',MDA_Capabilities::for_page('mda-bank-reconciliation'),'mda-bank-reconciliation',array(__CLASS__,'render_bank_reconciliation'));
  }
 
  public static function body_class(string $classes): string {
@@ -50,7 +49,7 @@ final class MDA_Admin {
   $screen=function_exists('get_current_screen')?get_current_screen():null;
   if(!$screen || (strpos((string)$screen->id,'mda-')===false && strpos((string)$screen->id,'mda_accounting')===false))return;
   $base=MDA_PATH.'assets/';
-  wp_enqueue_style('mda-bootstrap-rtl',MDA_URL.'assets/vendor/bootstrap/bootstrap.rtl.min.css',array(),MDA_VERSION);
+  wp_enqueue_style('mda-bootstrap-rtl',MDA_URL.'assets/vendor/bootstrap/bootstrap.rtl.scoped.min.css',array(),MDA_VERSION);
   wp_enqueue_style('mda-admin',MDA_URL.'assets/css/admin.css',array('mda-bootstrap-rtl'),(string)filemtime($base.'css/admin.css'));
   wp_enqueue_script('mda-bootstrap',MDA_URL.'assets/vendor/bootstrap/bootstrap.bundle.min.js',array(),MDA_VERSION,true);
   wp_enqueue_script('mda-admin',MDA_URL.'assets/js/admin.js',array('mda-bootstrap'),(string)filemtime($base.'js/admin.js'),true);

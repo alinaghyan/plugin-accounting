@@ -7,7 +7,7 @@ final class MDA_Cheque_Admin {
   add_action('admin_post_mda_register_cheque',array(__CLASS__,'register'));
   add_action('admin_post_mda_transition_cheque',array(__CLASS__,'transition'));
  }
- public static function menu(): void {add_submenu_page('mda-accounting','دفتر چک','دفتر چک',MDA_Capabilities::for_page('mda-cheques'),'mda-cheques',array(__CLASS__,'render'));}
+ public static function menu(): void {add_submenu_page(MDA_Admin_Shell::HIDDEN_PARENT,'دفتر چک','دفتر چک',MDA_Capabilities::for_page('mda-cheques'),'mda-cheques',array(__CLASS__,'render'));}
  private static function guard(): void {if(!MDA_Capabilities::user_can_action())wp_die(esc_html__('شما اجازه دسترسی به این بخش را ندارید.','malidev-accounting'));}
  public static function register(): void {
   self::guard();check_admin_referer('mda_register_cheque');

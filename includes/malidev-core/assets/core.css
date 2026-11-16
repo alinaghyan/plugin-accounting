@@ -1,0 +1,9 @@
+.malidev-hub .malidev-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px;margin-top:16px}
+.malidev-hub .malidev-card{background:#fff;border:1px solid #e8ebf3;border-radius:16px;padding:20px;box-shadow:0 4px 18px rgba(99,91,219,.08)}
+.malidev-hub .malidev-card h2{margin:8px 0;font-size:17px}
+.malidev-hub .malidev-card__icon{border-radius:14px}
+.malidev-badge{display:inline-block;padding:3px 10px;border-radius:999px;font-size:12px;background:#f0f0f1;color:#50575e}
+.malidev-badge--active{background:#e6f6f0;color:#0e7a59}
+.malidev-badge--expired,.malidev-badge--invalid,.malidev-badge--domain_mismatch,.malidev-badge--disabled{background:#fcebee;color:#b32d48}
+.malidev-badge--unverified,.malidev-badge--missing{background:#fff6e0;color:#8a5a00}
+.malidev-license-form{margin-top:10px}

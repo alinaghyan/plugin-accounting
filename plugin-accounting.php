@@ -17,6 +17,19 @@ define( 'MDA_VERSION', '0.17.0' );
 define( 'MDA_FILE', __FILE__ );
 define( 'MDA_PATH', plugin_dir_path( __FILE__ ) );
 define( 'MDA_URL', plugin_dir_url( __FILE__ ) );
+require_once MDA_PATH . 'includes/malidev-core/bootstrap.php';
+malidev_core_register_product(
+	array(
+		'slug'            => 'malidev-accounting',
+		'name'            => 'حسابداری فروشگاه',
+		'version'         => MDA_VERSION,
+		'file'            => __FILE__,
+		'license_product' => 'plugin-accounting',
+		'repository'      => 'alinaghyan/plugin-accounting',
+		'icon'            => MDA_URL . 'assets/icon/icon-animated.svg',
+		'settings_url'    => admin_url( 'admin.php?page=mda-accounting' ),
+	)
+);
 require_once MDA_PATH . 'includes/class-mda-database.php';
 require_once MDA_PATH . 'includes/class-mda-installer.php';
 require_once MDA_PATH . 'includes/class-mda-capabilities.php';
@@ -46,6 +59,7 @@ require_once MDA_PATH . 'includes/class-mda-order-adjustment-service.php';
 require_once MDA_PATH . 'includes/class-mda-product-fields.php';
 require_once MDA_PATH . 'includes/class-mda-woocommerce.php';
 require_once MDA_PATH . 'includes/class-mda-phone-sales-admin.php';
+require_once MDA_PATH . 'includes/class-mda-admin-shell.php';
 require_once MDA_PATH . 'includes/class-mda-admin.php';
 require_once MDA_PATH . 'includes/class-mda-plugin.php';
 register_activation_hook( __FILE__, array( 'MDA_Installer', 'activate' ) );
@@ -58,6 +72,7 @@ add_action( 'before_woocommerce_init', static function (): void {
 } );
 add_action('plugins_loaded',static function(): void {
  MDA_Installer::maybe_migrate();
+ MDA_Admin_Shell::init();
  MDA_Plugin::instance()->init();
  MDA_Cheque_Admin::init();
  MDA_Gateway_Admin::init();
