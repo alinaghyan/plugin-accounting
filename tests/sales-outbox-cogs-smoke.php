@@ -41,5 +41,21 @@ $receiptAgain=MDA_Sales_Receipt_Service::record($saleId,3000,$cash,'bank','test-
 if(empty($receiptAgain['duplicate'])||count(MDA_Sales_Receipt_Service::receipts($saleId))!==1)throw new RuntimeException('Customer receipt idempotency failed.');
 try{MDA_Sales_Receipt_Service::record($saleId,3601,$cash,'cash','test-sales-overreceipt-001','2026-11-16');throw new RuntimeException('Over-receipt was accepted.');}catch(InvalidArgumentException $expected){}
 if(MDA_Sales_Receipt_Service::summary($saleId)['receivable_minor']!==3600)throw new RuntimeException('Over-receipt rollback failed.');
+$receiptSecond=MDA_Sales_Receipt_Service::record($saleId,3600,$cash,'bank','test-sales-receipt-002','2026-11-16');
+if(MDA_Sales_Receipt_Service::summary($saleId)['receivable_minor']!==0)throw new RuntimeException('Customer sale was not fully settled before return.');
+$saleLineId=(int)$db->query("SELECT id FROM mda_sales_lines WHERE sales_document_id=".$saleId)->fetchColumn();
+$return=MDA_Sales_Return_Service::post($saleId,array(array('sales_line_id'=>$saleLineId,'quantity_scaled'=>1000000)),'test-sales-return-001','2026-11-16');
+if($return['total_minor']!==2700||$return['cogs_reversed_minor']!==1000)throw new RuntimeException('Sales return revenue, tax or COGS reversal is incorrect.');
+$returnAgain=MDA_Sales_Return_Service::post($saleId,array(array('sales_line_id'=>$saleLineId,'quantity_scaled'=>1000000)),'test-sales-return-001','2026-11-16');
+if(empty($returnAgain['duplicate'])||count(MDA_Sales_Return_Service::returns($saleId))!==1)throw new RuntimeException('Sales return idempotency failed.');
+if((int)$db->query("SELECT quantity_scaled FROM mda_product_cost_state WHERE product_id=501")->fetchColumn()!==9000000)throw new RuntimeException('Customer return did not restore inventory cost state.');
+if((int)$db->query("SELECT SUM(quantity_scaled) FROM mda_inventory_movements WHERE product_id=501")->fetchColumn()!==9000000)throw new RuntimeException('Customer return stock ledger is incorrect.');
+$refundSummary=MDA_Sales_Refund_Service::summary((int)$return['return_id']);
+if($refundSummary['available_minor']!==2700)throw new RuntimeException('Customer credit available for refund is incorrect.');
+$refund=MDA_Sales_Refund_Service::record((int)$return['return_id'],1000,$cash,'bank','test-sales-refund-001','2026-11-16');
+if(!empty($refund['duplicate'])||MDA_Sales_Refund_Service::summary((int)$return['return_id'])['refunded_minor']!==1000)throw new RuntimeException('Customer refund posting failed.');
+try{MDA_Sales_Refund_Service::record((int)$return['return_id'],1800,$cash,'cash','test-sales-refund-over-001','2026-11-16');throw new RuntimeException('Over-refund was accepted.');}catch(InvalidArgumentException $expected){}
+try{$db->exec("UPDATE mda_sales_returns SET total_minor=1 WHERE id=".(int)$return['return_id']);throw new RuntimeException('Posted sales return was mutable.');}catch(PDOException $expected){}
+$totals=$db->query("SELECT SUM(debit_minor) debit,SUM(credit_minor) credit FROM mda_journal_entries")->fetch();if((int)$totals['debit']!==(int)$totals['credit'])throw new RuntimeException('Sales return/refund journals are not balanced.');
 $changed=$payload;$changed['total_minor']=6601;$rejected=false;try{MDA_Sales_Service::post_order_payload($changed);}catch(RuntimeException $e){$rejected=true;}if(!$rejected)throw new RuntimeException('Changed payload reused the same idempotency key.');
-echo "OK: Outbox processing, sales posting, balanced journal, weighted-average COGS, stock issue, immutable snapshots, customer receipts, receivable balance and idempotency passed.\\n";
+echo "OK: Outbox processing, sales posting, balanced journal, weighted-average COGS, stock issue, immutable snapshots, customer receipts, sales returns, COGS reversal, inventory restoration, customer refunds and idempotency passed.\\n";
