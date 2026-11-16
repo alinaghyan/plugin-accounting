@@ -12,10 +12,11 @@ final class MDA_Database {
  public static function connection():PDO {if(!self::$pdo){self::$pdo=new PDO('sqlite::memory:');self::$pdo->setAttribute(PDO::ATTR_ERRMODE,PDO::ERRMODE_EXCEPTION);self::$pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE,PDO::FETCH_ASSOC);self::$pdo->exec('PRAGMA foreign_keys=ON');}return self::$pdo;}
  public static function transaction(callable $callback){$db=self::connection();$db->beginTransaction();try{$result=$callback($db);$db->commit();return$result;}catch(Throwable $e){if($db->inTransaction())$db->rollBack();throw$e;}}
 }
-$files=array('001_initial.sql','002_parties-and-chart-of-accounts.sql','003-party-subledger.sql','004-purchasing-inventory-foundation.sql','005-purchase-posting-costing.sql','006-immutable-purchase-history.sql','007-purchase-settlements-and-returns.sql','008-sales-outbox-and-cogs.sql');
+$files=array('001_initial.sql','002_parties-and-chart-of-accounts.sql','003-party-subledger.sql','004-purchasing-inventory-foundation.sql','005-purchase-posting-costing.sql','006-immutable-purchase-history.sql','007-purchase-settlements-and-returns.sql','008-sales-outbox-and-cogs.sql','009-customer-receipts.sql');
 foreach($files as $file){$sql=file_get_contents(dirname(__DIR__).'/database/migrations/'.$file);if(false===$sql)throw new RuntimeException('Missing migration '.$file);MDA_Database::connection()->exec($sql);}
 require_once dirname(__DIR__).'/includes/class-mda-sales-service.php';
 require_once dirname(__DIR__).'/includes/class-mda-outbox-service.php';
+require_once dirname(__DIR__).'/includes/class-mda-sales-receipt-service.php';
 $db=MDA_Database::connection();$now='2026-11-16 10:00:00';
 $warehouse=(int)$db->query("SELECT id FROM mda_warehouses WHERE warehouse_code='MAIN'")->fetchColumn();
 $db->prepare("INSERT INTO mda_inventory_movements (product_id,variation_id,warehouse_id,movement_type,quantity_scaled,quantity_scale,unit_cost_minor,currency_code,source_type,source_id,idempotency_key,occurred_at) VALUES (501,0,:w,'opening',10000000,1000000,1000,'IRR','opening','test','opening-501-test-001',:n)")->execute(array(':w'=>$warehouse,':n'=>$now));
@@ -31,5 +32,13 @@ if((int)$db->query("SELECT quantity_scaled FROM mda_product_cost_state WHERE pro
 $stock=(int)$db->query("SELECT SUM(quantity_scaled) FROM mda_inventory_movements WHERE product_id=501")->fetchColumn();if($stock!==8000000)throw new RuntimeException('Stock ledger and cost state disagree.');
 $totals=$db->query("SELECT SUM(debit_minor) debit,SUM(credit_minor) credit FROM mda_journal_entries")->fetch();if((int)$totals['debit']!==(int)$totals['credit'])throw new RuntimeException('Sales journal is not balanced.');
 $lines=$db->query("SELECT cogs_minor,unit_cost_minor,quantity_scaled FROM mda_sales_lines")->fetch();if((int)$lines['cogs_minor']!==2000||(int)$lines['unit_cost_minor']!==1000||(int)$lines['quantity_scaled']!==2000000)throw new RuntimeException('Immutable COGS snapshot is incorrect.');
+$saleId=(int)$db->query("SELECT id FROM mda_sales_documents WHERE order_id=9001")->fetchColumn();
+$cash=(int)$db->query("SELECT id FROM mda_accounts WHERE account_code='1110'")->fetchColumn();
+$receipt=MDA_Sales_Receipt_Service::record($saleId,3000,$cash,'bank','test-sales-receipt-001','2026-11-16');
+if(!empty($receipt['duplicate'])||MDA_Sales_Receipt_Service::summary($saleId)['receivable_minor']!==3600)throw new RuntimeException('Customer receipt or receivable balance incorrect.');
+$receiptAgain=MDA_Sales_Receipt_Service::record($saleId,3000,$cash,'bank','test-sales-receipt-001','2026-11-16');
+if(empty($receiptAgain['duplicate'])||count(MDA_Sales_Receipt_Service::receipts($saleId))!==1)throw new RuntimeException('Customer receipt idempotency failed.');
+try{MDA_Sales_Receipt_Service::record($saleId,3601,$cash,'cash','test-sales-overreceipt-001','2026-11-16');throw new RuntimeException('Over-receipt was accepted.');}catch(InvalidArgumentException $expected){}
+if(MDA_Sales_Receipt_Service::summary($saleId)['receivable_minor']!==3600)throw new RuntimeException('Over-receipt rollback failed.');
 $changed=$payload;$changed['total_minor']=6601;$rejected=false;try{MDA_Sales_Service::post_order_payload($changed);}catch(RuntimeException $e){$rejected=true;}if(!$rejected)throw new RuntimeException('Changed payload reused the same idempotency key.');
-echo "OK: Outbox processing, sales posting, balanced journal, weighted-average COGS, stock issue, immutable snapshots and idempotency passed.\\n";
+echo "OK: Outbox processing, sales posting, balanced journal, weighted-average COGS, stock issue, immutable snapshots, customer receipts, receivable balance and idempotency passed.\\n";
