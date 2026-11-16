@@ -76,7 +76,7 @@ final class MDA_Sales_Return_Service {
  private static function mulDivRound(int $a,int $b,int $d):int {if($a<0||$b<0||$d<1||($a>0&&$b>intdiv(PHP_INT_MAX,$a)))throw new OverflowException('محاسبه مبلغ مرجوعی بیش از ظرفیت است.');$v=$a*$b;$q=intdiv($v,$d);$r=$v%$d;if($r>=intdiv($d,2)+($d%2))$q++;return$q;}
  private static function weightedAverage(int $oldQty,int $oldCost,int $newQty,int $newCost):int {
   if($newQty<1||$oldQty<0||$oldCost<0||$newCost<0)throw new InvalidArgumentException('ورودی میانگین موزون معتبر نیست.');
-  if($oldQty===0)return$newCost;$total=$oldQty+$newQty;if($total<=$oldQty)throw new OverflowException('مقدار موجودی بیش از ظرفیت است.');
+  if($oldQty===0)return$newCost;if($newQty>PHP_INT_MAX-$oldQty)throw new OverflowException('مقدار موجودی بیش از ظرفیت است.');$total=$oldQty+$newQty;if($total<=$oldQty)throw new OverflowException('مقدار موجودی بیش از ظرفیت است.');
   $delta=$newCost-$oldCost;$abs=abs($delta);if($abs>intdiv(PHP_INT_MAX,$newQty))throw new OverflowException('محاسبه میانگین موزون بیش از ظرفیت است.');
   $part=$abs*$newQty;$adjust=intdiv($part,$total);$rem=$part%$total;if($rem>=intdiv($total,2)+($total%2))$adjust++;
   return $delta>=0?$oldCost+$adjust:max(0,$oldCost-$adjust);
