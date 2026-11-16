@@ -86,7 +86,7 @@ if(count($channelReport)!==1||$channelReport[0]['gross_profit_minor']!==1500)thr
 $inventoryReport=MDA_Report_Service::inventory_valuation($warehouse);
 if(($inventoryReport['totals']['IRR']??null)!==9000)throw new RuntimeException('Inventory valuation report is incorrect.');
 $bankParent=(int)$db->query("SELECT id FROM mda_accounts WHERE account_code='1120'")->fetchColumn();
-$db->prepare("INSERT INTO mda_accounts (account_code,account_name,account_type,parent_id,is_active,created_at,normal_balance,is_control,is_system,allow_manual_entry,description,sort_order) VALUES ('1121','Smoke bank','asset',:parent,1,:now,'debit',0,0,1,'Test bank',41)")->execute(array(':parent'=>$bankParent,':now'=>$now));
+$db->prepare("INSERT INTO mda_accounts (account_code,account_name,account_type,parent_id,is_active,created_at,normal_balance,is_control,is_system,allow_manual_entry,description,sort_order) VALUES ('1199','Smoke bank','asset',:parent,1,:now,'debit',0,0,1,'Test bank',41)")->execute(array(':parent'=>$bankParent,':now'=>$now));
 $bank=(int)$db->lastInsertId();
 $incomeAccount=(int)$db->query("SELECT id FROM mda_accounts WHERE account_code='4400'")->fetchColumn();$expenseAccount=(int)$db->query("SELECT id FROM mda_accounts WHERE account_code='5210'")->fetchColumn();
 $cashReceipt=MDA_Cash_Service::record('receipt',1000,$cash,$incomeAccount,0,'IRR','cash','test-cash-receipt-001','2026-11-16','دریافت متفرقه','RCPT-1');
@@ -95,7 +95,7 @@ $cashTransfer=MDA_Cash_Service::record('transfer',500,$cash,0,$bank,'IRR','trans
 $cashDuplicate=MDA_Cash_Service::record('receipt',1000,$cash,$incomeAccount,0,'IRR','cash','test-cash-receipt-001','2026-11-16','دریافت متفرقه','RCPT-1');
 if(empty($cashDuplicate['duplicate'])||count(MDA_Cash_Service::transactions(100))!==3)throw new RuntimeException('Cash transaction idempotency or history failed.');
 $cashBalances=MDA_Cash_Service::balances();$balanceMap=array();foreach($cashBalances as $balance)$balanceMap[$balance['account_code']]=(int)$balance['balance_minor'];
-if(($balanceMap['1110']??null)!==5900||($balanceMap['1121']??null)!==500)throw new RuntimeException('Cash/bank balances or transfer posting are incorrect: '.wp_json_encode($balanceMap));
+if(($balanceMap['1110']??null)!==5900||($balanceMap['1199']??null)!==500)throw new RuntimeException('Cash/bank balances or transfer posting are incorrect: '.wp_json_encode($balanceMap));
 try{$db->exec("UPDATE mda_cash_transactions SET amount_minor=1 WHERE id=1");throw new RuntimeException('Posted cash transaction was mutable.');}catch(PDOException $expected){}
 $stockSync=MDA_Stock_Sync_Service::run_batch($warehouse,100);
 if($stockSync['status']!=='completed'||$stockSync['synced']!==1||SmokeWCProduct::$stock!=='9')throw new RuntimeException('SQLite-to-WooCommerce stock sync failed: '.wp_json_encode($stockSync));
@@ -110,7 +110,7 @@ $changed=$payload;$changed['total_minor']=6601;$rejected=false;try{MDA_Sales_Ser
 $cashIncome=(int)$db->query("SELECT id FROM mda_accounts WHERE account_code='4400'")->fetchColumn();
 $cashExpense=(int)$db->query("SELECT id FROM mda_accounts WHERE account_code='5210'")->fetchColumn();
 $bankParent=(int)$db->query("SELECT id FROM mda_accounts WHERE account_code='1120'")->fetchColumn();
-$db->prepare("INSERT INTO mda_accounts (account_code,account_name,account_type,parent_id,is_active,created_at,normal_balance,is_control,is_system,allow_manual_entry,description,sort_order) VALUES ('1121','بانک آزمایشی','asset',:parent,1,:now,'debit',0,0,1,'حساب بانکی تست',41)")->execute(array(':parent'=>$bankParent,':now'=>$now));
+$db->prepare("INSERT INTO mda_accounts (account_code,account_name,account_type,parent_id,is_active,created_at,normal_balance,is_control,is_system,allow_manual_entry,description,sort_order) VALUES ('1199','بانک آزمایشی','asset',:parent,1,:now,'debit',0,0,1,'حساب بانکی تست',41)")->execute(array(':parent'=>$bankParent,':now'=>$now));
 $bankAccount=(int)$db->lastInsertId();
 $cashReceipt=MDA_Cash_Service::record('receipt',5000,$cash,$cashIncome,0,'IRR','bank','test-cash-receipt-001','2026-11-16','درآمد متفرقه تست','CASH-IN-001');
 if(!empty($cashReceipt['duplicate']))throw new RuntimeException('Cash receipt was incorrectly marked duplicate.');
