@@ -30,11 +30,17 @@ final class MDA_Sales_Service {
     $state->execute(array(':product'=>$product,':variation'=>$variation,':warehouse'=>$warehouse));$cost=$state->fetch();
     $stock=$db->prepare('SELECT COALESCE(SUM(quantity_scaled),0) AS ledger_quantity,COUNT(DISTINCT quantity_scale) AS scale_count FROM mda_inventory_movements WHERE product_id=:product AND variation_id=:variation AND warehouse_id=:warehouse');
     $stock->execute(array(':product'=>$product,':variation'=>$variation,':warehouse'=>$warehouse));$stockRow=$stock->fetch();$stockQty=(int)$stockRow['ledger_quantity'];
-    if(!$cost||(int)$cost['quantity_scale']!==$scale||(int)$stockRow['scale_count']!==1||(int)$cost['quantity_scaled']!==$stockQty||$cost['currency_code']!==$currency)throw new RuntimeException('بهای تمام‌شده یا کاردکس کالا با موجودی انبار سازگار نیست؛ فروش حسابداری متوقف شد. '.wp_json_encode(array('cost_state'=>$cost,'ledger_quantity'=>$stockQty,'ledger_scale_count'=>(int)$stockRow['scale_count'],'requested_scale'=>$scale,'currency'=>$currency,'product'=>$product,'variation'=>$variation,'warehouse'=>$warehouse)));
-    if($qty>$stockQty)throw new RuntimeException('موجودی حسابداری برای یکی از کالاهای سفارش کافی نیست.');
-    $unitCost=(int)$cost['average_cost_minor'];$cogs=self::mulDivRound($qty,$unitCost,$scale);
+    $onDemand=MDA_Supply_Service::MODE_ON_DEMAND===MDA_Supply_Service::mode($db,$product,$variation);
+    $consistent=$cost&&(int)$cost['quantity_scale']===$scale&&(int)$stockRow['scale_count']===1&&(int)$cost['quantity_scaled']===$stockQty&&$cost['currency_code']===$currency;
+    $emptyLedger=!$cost&&$stockQty===0&&(int)$stockRow['scale_count']===0;
+    if(!$consistent&&$emptyLedger&&!$onDemand)throw new RuntimeException('این کالا در حسابداری موجودی ندارد. اگر پس از فروش از تأمین‌کننده خریده می‌شود، حالت تأمین آن را «سفارشی از تأمین‌کننده» کنید؛ در غیر این صورت ابتدا خرید یا موجودی افتتاحیه آن را ثبت کنید.');
+    if(!$consistent&&!($onDemand&&$emptyLedger))throw new RuntimeException('بهای تمام‌شده یا کاردکس کالا با موجودی انبار سازگار نیست؛ فروش حسابداری متوقف شد. '.wp_json_encode(array('cost_state'=>$cost,'ledger_quantity'=>$stockQty,'ledger_scale_count'=>(int)$stockRow['scale_count'],'requested_scale'=>$scale,'currency'=>$currency,'product'=>$product,'variation'=>$variation,'warehouse'=>$warehouse)));
+    $available=$consistent?max(0,$stockQty):0;
+    $fromStock=min($qty,$available);$backorder=$qty-$fromStock;
+    if($backorder>0&&!$onDemand)throw new RuntimeException('موجودی حسابداری برای یکی از کالاهای سفارش کافی نیست. اگر این کالا پس از فروش از تأمین‌کننده خریده می‌شود، حالت تأمین آن را «سفارشی از تأمین‌کننده» کنید.');
+    $unitCost=$consistent?(int)$cost['average_cost_minor']:0;$cogs=$fromStock>0?self::mulDivRound($fromStock,$unitCost,$scale):0;
     $productTotal=self::safeAdd($productTotal,$revenue);$costTotal=self::safeAdd($costTotal,$cogs);
-    $clean[]=array('item'=>$item,'product'=>$product,'variation'=>$variation,'qty'=>$qty,'scale'=>$scale,'revenue'=>$revenue,'tax'=>$lineTax,'unit_cost'=>$unitCost,'cogs'=>$cogs);
+    $clean[]=array('item'=>$item,'product'=>$product,'variation'=>$variation,'qty'=>$qty,'from_stock'=>$fromStock,'backorder'=>$backorder,'scale'=>$scale,'revenue'=>$revenue,'tax'=>$lineTax,'unit_cost'=>$unitCost,'cogs'=>$cogs);
    }
    if(self::safeAdd(self::safeAdd(self::safeAdd($productTotal,$shipping),$fees),$tax)!==$total)throw new RuntimeException('جمع ردیف‌های کالا، ارسال، کارمزد و مالیات با مبلغ نهایی سفارش برابر نیست.');
    $accounts=self::accounts($db,array('1200','1300','4100','5100','2200','4200','4300'));
@@ -58,8 +64,12 @@ final class MDA_Sales_Service {
    $movement=$db->prepare("INSERT INTO mda_inventory_movements (product_id,variation_id,warehouse_id,movement_type,quantity_scaled,quantity_scale,unit_cost_minor,currency_code,source_type,source_id,idempotency_key,occurred_at,created_by) VALUES (:product,:variation,:warehouse,'sale_issue',:qty,:scale,:cost,:currency,'sale',:source,:key,:now,:user)");
    $update=$db->prepare('UPDATE mda_product_cost_state SET quantity_scaled=quantity_scaled-:qty,updated_at=:now WHERE product_id=:product AND variation_id=:variation AND warehouse_id=:warehouse AND quantity_scaled>=:qty');
    foreach($clean as $row){$it=$row['item'];$lineInsert->execute(array(':sale'=>$saleId,':item'=>(int)$it['order_item_id'],':product'=>$row['product'],':variation'=>$row['variation'],':name'=>(string)$it['name'],':sku'=>$it['sku']??null,':qty'=>$row['qty'],':scale'=>$row['scale'],':revenue'=>$row['revenue'],':tax'=>$row['tax'],':cost'=>$row['unit_cost'],':cogs'=>$row['cogs'],':currency'=>$currency,':now'=>$now));
-    $movement->execute(array(':product'=>$row['product'],':variation'=>$row['variation'],':warehouse'=>$warehouse,':qty'=>-$row['qty'],':scale'=>$row['scale'],':cost'=>$row['unit_cost'],':currency'=>$currency,':source'=>$orderId,':key'=>'sale-issue-'.$orderId.'-'.$row['item']['order_item_id'],':now'=>$now,':user'=>get_current_user_id()?:null));
-    $update->execute(array(':qty'=>$row['qty'],':now'=>$now,':product'=>$row['product'],':variation'=>$row['variation'],':warehouse'=>$warehouse));if(1!==$update->rowCount())throw new RuntimeException('به‌روزرسانی وضعیت بهای تمام‌شده انجام نشد.');
+    $lineId=(int)$db->lastInsertId();
+    if($row['from_stock']>0){
+     $movement->execute(array(':product'=>$row['product'],':variation'=>$row['variation'],':warehouse'=>$warehouse,':qty'=>-$row['from_stock'],':scale'=>$row['scale'],':cost'=>$row['unit_cost'],':currency'=>$currency,':source'=>$orderId,':key'=>'sale-issue-'.$orderId.'-'.$row['item']['order_item_id'],':now'=>$now,':user'=>get_current_user_id()?:null));
+     $update->execute(array(':qty'=>$row['from_stock'],':now'=>$now,':product'=>$row['product'],':variation'=>$row['variation'],':warehouse'=>$warehouse));if(1!==$update->rowCount())throw new RuntimeException('به‌روزرسانی وضعیت بهای تمام‌شده انجام نشد.');
+    }
+    if($row['backorder']>0)MDA_Supply_Service::record_backorder($db,$saleId,$lineId,$orderId,$row['product'],$row['variation'],$warehouse,$row['backorder'],$row['scale'],$now);
    }
    $audit=$db->prepare("INSERT INTO mda_audit_logs (user_id,action,object_type,object_id,after_json,created_at) VALUES (:user,'sale_posted','sale',:id,:after,:now)");
    $audit->execute(array(':user'=>$createdBy?:null,':id'=>(string)$saleId,':after'=>wp_json_encode(array('order_id'=>$orderId,'total_minor'=>$total,'cogs_total_minor'=>$costTotal,'channel'=>$sourceType)),':now'=>$now));

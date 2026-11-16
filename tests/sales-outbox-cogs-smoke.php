@@ -1,5 +1,6 @@
 <?php
 declare(strict_types=1);
+if(!function_exists('apply_filters')){function apply_filters($h,$v,...$a){return $v;}}
 define('ABSPATH',__DIR__.'/');
 function sanitize_text_field($v){return trim(strip_tags((string)$v));}
 function sanitize_email($v){return filter_var((string)$v,FILTER_VALIDATE_EMAIL)?(string)$v:'';}
@@ -13,9 +14,9 @@ final class MDA_Database {
  public static function connection():PDO {if(!self::$pdo){self::$pdo=new PDO('sqlite::memory:');self::$pdo->setAttribute(PDO::ATTR_ERRMODE,PDO::ERRMODE_EXCEPTION);self::$pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE,PDO::FETCH_ASSOC);self::$pdo->exec('PRAGMA foreign_keys=ON');}return self::$pdo;}
  public static function transaction(callable $callback){$db=self::connection();$db->beginTransaction();try{$result=$callback($db);$db->commit();return$result;}catch(Throwable $e){if($db->inTransaction())$db->rollBack();throw$e;}}
 }
-$files=array('001_initial.sql','002_parties-and-chart-of-accounts.sql','003-party-subledger.sql','004-purchasing-inventory-foundation.sql','005-purchase-posting-costing.sql','006-immutable-purchase-history.sql','007-purchase-settlements-and-returns.sql','008-sales-outbox-and-cogs.sql','009-customer-receipts.sql','010-sales-returns-and-refunds.sql','011-woocommerce-reconciliation.sql','012-woocommerce-stock-sync.sql','013-cash-bank-and-expenses.sql','014-bank-statement-reconciliation.sql');
+$files=array_map('basename',glob(dirname(__DIR__).'/database/migrations/*.sql'));
 foreach($files as $file){$sql=file_get_contents(dirname(__DIR__).'/database/migrations/'.$file);if(false===$sql)throw new RuntimeException('Missing migration '.$file);MDA_Database::connection()->exec($sql);}
-require_once dirname(__DIR__).'/includes/class-mda-sales-service.php';
+require_once dirname(__DIR__).'/includes/class-mda-ledger-service.php';require_once dirname(__DIR__).'/includes/class-mda-supply-service.php';require_once dirname(__DIR__).'/includes/class-mda-sales-service.php';
 require_once dirname(__DIR__).'/includes/class-mda-outbox-service.php';
 require_once dirname(__DIR__).'/includes/class-mda-sales-receipt-service.php';
 require_once dirname(__DIR__).'/includes/class-mda-sales-return-service.php';

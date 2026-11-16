@@ -1,5 +1,6 @@
 <?php
 declare(strict_types=1);
+if(!function_exists('apply_filters')){function apply_filters($h,$v,...$a){return $v;}}
 if(!in_array('sqlite',PDO::getAvailableDrivers(),true)){fwrite(STDERR,"SKIP: pdo_sqlite unavailable\n");exit(2);}
 define('ABSPATH',__DIR__.'/');
 function sanitize_key($v){return preg_replace('/[^a-z0-9_\-]/','',strtolower((string)$v));}

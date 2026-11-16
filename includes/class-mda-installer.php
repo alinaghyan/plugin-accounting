@@ -2,11 +2,24 @@
 defined( 'ABSPATH' ) || exit;
 
 final class MDA_Installer {
- private const SCHEMA_VERSION=16;
+ public const SCHEMA_VERSION=17;
  public static function activate(): void {
   if(!MDA_Database::is_available()) wp_die(esc_html__('برای نصب MaliDev Accounting باید افزونه PHP با نام PDO_SQLite فعال باشد.','malidev-accounting'),esc_html__('پیش‌نیاز نصب موجود نیست','malidev-accounting'),array('back_link'=>true));
-  try { self::migrate(); MDA_Capabilities::add(); }
+  try { self::migrate(); MDA_Capabilities::add(); MDA_Capabilities::register_roles(); }
   catch(Throwable $exception){ wp_die(esc_html('نصب افزونه انجام نشد: '.$exception->getMessage()),esc_html__('خطا در نصب حسابداری','malidev-accounting'),array('back_link'=>true)); }
+ }
+ /**
+  * Cheap gate: the SQLite file is opened only when the cached schema version is behind,
+  * and only in admin, cron or CLI requests (never on ordinary storefront page views).
+  */
+ public static function maybe_migrate(): void {
+  if((int)get_option('mda_schema_cache',0)>=self::SCHEMA_VERSION)return;
+  $context=is_admin()||wp_doing_cron()||(defined('WP_CLI')&&WP_CLI);
+  if(!$context||!MDA_Database::is_available())return;
+  try{self::migrate();}catch(Throwable $exception){error_log('MaliDev Accounting migration error: '.$exception->getMessage());}
+ }
+ public static function deactivate(): void {
+  foreach(array('mda_process_outbox','mda_process_outbox_batch','mda_reconcile_woocommerce_batch','mda_reconcile_woocommerce_continue','mda_woocommerce_stock_sync_continue','mda_daily_backup','mda_core_license_check') as $hook)wp_clear_scheduled_hook($hook);
  }
  public static function migrate(): void {
   $pdo=MDA_Database::connection();
@@ -29,7 +42,8 @@ final class MDA_Installer {
    13=>array('013-cash-bank-and-expenses.sql','فایل مهاجرت صندوق، بانک و هزینه‌ها پیدا نشد.'),
    14=>array('014-bank-statement-reconciliation.sql','فایل مهاجرت تطبیق صورت‌حساب بانکی پیدا نشد.'),
    15=>array('015-cheque-management.sql','فایل مهاجرت دفتر چک پیدا نشد.'),
-   16=>array('016-gateway-settlements.sql','فایل مهاجرت تسویه درگاه‌ها پیدا نشد.')
+   16=>array('016-gateway-settlements.sql','فایل مهاجرت تسویه درگاه‌ها پیدا نشد.'),
+   17=>array('017-ledger-integrity-and-supply-modes.sql','فایل مهاجرت قفل دفتر کل و کالای سفارشی پیدا نشد.')
   );
   foreach($migrations as $target=>$migration){
    if($version >= $target) continue;
@@ -42,5 +56,6 @@ final class MDA_Installer {
    });
    $version=$target;
   }
+  update_option('mda_schema_cache',$version,true);
  }
 }

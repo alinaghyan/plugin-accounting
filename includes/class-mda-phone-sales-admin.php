@@ -9,9 +9,9 @@ final class MDA_Phone_Sales_Admin {
   add_action('admin_post_mda_retry_outbox_event',array(__CLASS__,'retry_outbox_event'));
  }
  public static function menu(): void {
-  add_submenu_page('mda-accounting','فروش تلفنی / حضوری','فروش تلفنی / حضوری',MDA_Capabilities::MANAGE,'mda-phone-sales',array(__CLASS__,'render'));
+  add_submenu_page('mda-accounting','فروش تلفنی / حضوری','فروش تلفنی / حضوری',MDA_Capabilities::for_page('mda-phone-sales'),'mda-phone-sales',array(__CLASS__,'render'));
  }
- private static function guard(): void {if(!current_user_can(MDA_Capabilities::MANAGE))wp_die(esc_html__('شما اجازه دسترسی به این بخش را ندارید.','malidev-accounting'));}
+ private static function guard(): void {if(!MDA_Capabilities::user_can_action())wp_die(esc_html__('شما اجازه دسترسی به این بخش را ندارید.','malidev-accounting'));}
  public static function render(): void {
   self::guard();
   if(!class_exists('WooCommerce')){echo '<div class="wrap" dir="rtl"><h1>فروش تلفنی / حضوری</h1><div class="notice notice-error"><p>برای ثبت فروش، WooCommerce باید فعال باشد.</p></div></div>';return;}

@@ -88,6 +88,7 @@ final class MDA_Purchase_Service {
     $upsert->execute(array(':product'=>$line['product_id'],':variation'=>$line['variation_id'],':warehouse'=>$doc['warehouse_id'],':qty'=>$newQty,':scale'=>$scale,':cost'=>$newCost,':currency'=>$doc['currency_code'],':now'=>$now));
     $lineUpdate=$db->prepare('UPDATE mda_purchase_lines SET allocated_cost_minor=:allocation WHERE id=:id');$lineUpdate->execute(array(':allocation'=>$allocations[$i],':id'=>$line['id']));
    }
+   $fulfilled=array();foreach($items as $line){$k=(int)$line['product_id'].'-'.(int)$line['variation_id'];if(isset($fulfilled[$k]))continue;$fulfilled[$k]=MDA_Supply_Service::fulfil($db,(int)$line['product_id'],(int)$line['variation_id'],(int)$doc['warehouse_id'],(string)$doc['document_date'],'purchase',(string)$purchaseId);}
    if($paidMinor>0){$payment=$db->prepare('INSERT INTO mda_purchase_payments (purchase_id,amount_minor,cash_account_id,payment_method,idempotency_key,paid_at,created_at) VALUES (:purchase,:amount,:account,:method,:key,:now,:now)');$payment->execute(array(':purchase'=>$purchaseId,':amount'=>$paidMinor,':account'=>$cashAccountId,':method'=>$paymentMethod,':key'=>$paymentKey,':now'=>$now));}
    $update=$db->prepare("UPDATE mda_purchase_documents SET document_status='posted',paid_minor=:paid,cash_account_id=:cash,accounting_document_id=:journal,posted_at=:now WHERE id=:id");
    $update->execute(array(':paid'=>$paidMinor,':cash'=>$paidMinor>0?$cashAccountId:null,':journal'=>$journalId,':now'=>$now,':id'=>$purchaseId));

@@ -16,4 +16,13 @@ if ( $role ) {
 		$role->remove_cap( $capability );
 	}
 }
-delete_option( 'mda_schema_version' );
+remove_role( 'mda_accountant' );
+$shop_manager = get_role( 'shop_manager' );
+if ( $shop_manager ) {
+	$shop_manager->remove_cap( 'view_malidev_financial_reports' );
+	$shop_manager->remove_cap( 'create_malidev_accounting_documents' );
+}
+foreach ( array( 'mda_schema_version', 'mda_schema_cache', 'mda_settings', 'mda_license' ) as $option ) {
+	delete_option( $option );
+}
+// The database file path is kept on purpose so a reinstall reconnects to the same ledger.

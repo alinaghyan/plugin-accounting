@@ -10,9 +10,9 @@ final class MDA_Gateway_Admin {
   add_action('admin_post_mda_gateway_post',array(__CLASS__,'post'));
  }
  public static function menu():void {
-  add_submenu_page('mda-accounting','تسویه درگاه‌ها','تسویه درگاه‌ها',MDA_Capabilities::MANAGE,'mda-gateway-settlements',array(__CLASS__,'render'));
+  add_submenu_page('mda-accounting','تسویه درگاه‌ها','تسویه درگاه‌ها',MDA_Capabilities::for_page('mda-gateway-settlements'),'mda-gateway-settlements',array(__CLASS__,'render'));
  }
- private static function guard():void {if(!current_user_can(MDA_Capabilities::MANAGE))wp_die(esc_html__('دسترسی غیرمجاز','malidev-accounting'));}
+ private static function guard():void {if(!MDA_Capabilities::user_can_action())wp_die(esc_html__('دسترسی غیرمجاز','malidev-accounting'));}
  private static function redirect(string $error=''):void {$url=admin_url('admin.php?page=mda-gateway-settlements');wp_safe_redirect($error?add_query_arg('mda_error',rawurlencode($error),$url):add_query_arg('mda_notice','saved',$url));exit;}
  public static function configure():void {
   self::guard();check_admin_referer('mda_gateway_configure');

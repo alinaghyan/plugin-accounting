@@ -7,8 +7,8 @@ final class MDA_Cheque_Admin {
   add_action('admin_post_mda_register_cheque',array(__CLASS__,'register'));
   add_action('admin_post_mda_transition_cheque',array(__CLASS__,'transition'));
  }
- public static function menu(): void {add_submenu_page('mda-accounting','دفتر چک','دفتر چک',MDA_Capabilities::MANAGE,'mda-cheques',array(__CLASS__,'render'));}
- private static function guard(): void {if(!current_user_can(MDA_Capabilities::MANAGE))wp_die(esc_html__('شما اجازه دسترسی به این بخش را ندارید.','malidev-accounting'));}
+ public static function menu(): void {add_submenu_page('mda-accounting','دفتر چک','دفتر چک',MDA_Capabilities::for_page('mda-cheques'),'mda-cheques',array(__CLASS__,'render'));}
+ private static function guard(): void {if(!MDA_Capabilities::user_can_action())wp_die(esc_html__('شما اجازه دسترسی به این بخش را ندارید.','malidev-accounting'));}
  public static function register(): void {
   self::guard();check_admin_referer('mda_register_cheque');
   try{$in=array('cheque_type'=>sanitize_key(wp_unslash($_POST['cheque_type']??'')),'party_id'=>absint($_POST['party_id']??0),'bank_account_id'=>absint($_POST['bank_account_id']??0),'cheque_number'=>sanitize_text_field(wp_unslash($_POST['cheque_number']??'')),'amount_minor'=>filter_var((string)($_POST['amount_minor']??''),FILTER_VALIDATE_INT),'currency_code'=>sanitize_text_field(wp_unslash($_POST['currency_code']??'IRR')),'issue_date'=>sanitize_text_field(wp_unslash($_POST['issue_date']??'')),'due_date'=>sanitize_text_field(wp_unslash($_POST['due_date']??'')),'description'=>sanitize_text_field(wp_unslash($_POST['description']??'')),'request_key'=>sanitize_text_field(wp_unslash($_POST['request_key']??'')));if(false===$in['amount_minor'])throw new InvalidArgumentException('مبلغ معتبر نیست.');$r=MDA_Cheque_Service::register($in);$url=add_query_arg(array('page'=>'mda-cheques','mda_notice'=>$r['duplicate']?'duplicate':'registered'),admin_url('admin.php'));}

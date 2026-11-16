@@ -5,6 +5,9 @@
  * Version: 0.17.0
  * Requires at least: 6.3
  * Requires PHP: 8.1
+ * Requires Plugins: woocommerce
+ * WC requires at least: 8.0
+ * WC tested up to: 10.3
  * Author: MaliDev
  * Text Domain: malidev-accounting
  * Domain Path: /languages
@@ -22,6 +25,7 @@ require_once MDA_PATH . 'includes/class-mda-party-ledger-service.php';
 require_once MDA_PATH . 'includes/class-mda-account-service.php';
 require_once MDA_PATH . 'includes/class-mda-ledger-service.php';
 require_once MDA_PATH . 'includes/class-mda-inventory-service.php';
+require_once MDA_PATH . 'includes/class-mda-supply-service.php';
 require_once MDA_PATH . 'includes/class-mda-purchase-service.php';
 require_once MDA_PATH . 'includes/class-mda-purchase-settlement-service.php';
 require_once MDA_PATH . 'includes/class-mda-purchase-return-service.php';
@@ -43,8 +47,15 @@ require_once MDA_PATH . 'includes/class-mda-phone-sales-admin.php';
 require_once MDA_PATH . 'includes/class-mda-admin.php';
 require_once MDA_PATH . 'includes/class-mda-plugin.php';
 register_activation_hook( __FILE__, array( 'MDA_Installer', 'activate' ) );
+register_deactivation_hook( __FILE__, array( 'MDA_Installer', 'deactivate' ) );
+add_action( 'before_woocommerce_init', static function (): void {
+	if ( class_exists( \Automattic\WooCommerce\Utilities\FeaturesUtil::class ) ) {
+		\Automattic\WooCommerce\Utilities\FeaturesUtil::declare_compatibility( 'custom_order_tables', __FILE__, true );
+		\Automattic\WooCommerce\Utilities\FeaturesUtil::declare_compatibility( 'cart_checkout_blocks', __FILE__, true );
+	}
+} );
 add_action('plugins_loaded',static function(): void {
- try { MDA_Installer::migrate(); } catch(Throwable $exception) { error_log('MaliDev Accounting migration error: '.$exception->getMessage()); }
+ MDA_Installer::maybe_migrate();
  MDA_Plugin::instance()->init();
  MDA_Cheque_Admin::init();
  MDA_Gateway_Admin::init();

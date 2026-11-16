@@ -1,5 +1,6 @@
 <?php
 declare(strict_types=1);
+if(!function_exists('apply_filters')){function apply_filters($h,$v,...$a){return $v;}}
 if(!in_array('sqlite',PDO::getAvailableDrivers(),true)){fwrite(STDERR,"SKIP: pdo_sqlite unavailable\n");exit(2);}
 define('ABSPATH',__DIR__.'/');function sanitize_key($v){return preg_replace('/[^a-z0-9_\-]/','',strtolower((string)$v));}function sanitize_text_field($v){return trim(strip_tags((string)$v));}function sanitize_textarea_field($v){return trim(strip_tags((string)$v));}function absint($v){return abs((int)$v);}function wp_json_encode($v){return json_encode($v,JSON_UNESCAPED_UNICODE);}function get_current_user_id(){return 1;}
 require_once dirname(__DIR__).'/includes/class-mda-database.php';

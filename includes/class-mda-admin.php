@@ -27,18 +27,18 @@ final class MDA_Admin {
  }
 
  public static function menu(): void {
-  add_menu_page(__('حسابداری MaliDev','malidev-accounting'),__('حسابداری','malidev-accounting'),MDA_Capabilities::MANAGE,'mda-accounting',array(__CLASS__,'render'),'dashicons-chart-area',56);
-  add_submenu_page('mda-accounting','طرف‌حساب‌ها','طرف‌حساب‌ها',MDA_Capabilities::MANAGE,'mda-parties',array(__CLASS__,'render_parties'));
-  add_submenu_page('mda-accounting','کدینگ حساب‌ها','کدینگ حساب‌ها',MDA_Capabilities::MANAGE,'mda-accounts',array(__CLASS__,'render_accounts'));
-  add_submenu_page('mda-accounting','گردش حساب اشخاص','گردش حساب اشخاص',MDA_Capabilities::MANAGE,'mda-party-ledger',array(__CLASS__,'render_party_ledger'));
-  add_submenu_page('mda-accounting','خرید و فاکتور خرید','خرید و انبار',MDA_Capabilities::MANAGE,'mda-purchases',array(__CLASS__,'render_purchases'));
-  add_submenu_page('mda-accounting','دریافت از مشتری','دریافت از مشتری',MDA_Capabilities::MANAGE,'mda-sales-receipts',array(__CLASS__,'render_sales_receipts'));
-  add_submenu_page('mda-accounting','مرجوعی فروش و استرداد','مرجوعی فروش',MDA_Capabilities::MANAGE,'mda-sales-returns',array(__CLASS__,'render_sales_returns'));
-  add_submenu_page('mda-accounting','تطبیق سفارش‌های ووکامرس','تطبیق سفارش‌ها',MDA_Capabilities::MANAGE,'mda-reconciliation',array(__CLASS__,'render_reconciliation'));
-  add_submenu_page('mda-accounting','همگام‌سازی موجودی ووکامرس','همگام‌سازی موجودی',MDA_Capabilities::MANAGE,'mda-stock-sync',array(__CLASS__,'render_stock_sync'));
-  add_submenu_page('mda-accounting','گزارش‌های مالی','گزارش‌های مالی',MDA_Capabilities::MANAGE,'mda-reports',array(__CLASS__,'render_reports'));
-  add_submenu_page('mda-accounting','صندوق، بانک و هزینه‌ها','صندوق و بانک',MDA_Capabilities::MANAGE,'mda-cashbook',array(__CLASS__,'render_cashbook'));
-  add_submenu_page('mda-accounting','مغایرت‌گیری بانکی','مغایرت‌گیری بانکی',MDA_Capabilities::MANAGE,'mda-bank-reconciliation',array(__CLASS__,'render_bank_reconciliation'));
+  add_menu_page(__('حسابداری MaliDev','malidev-accounting'),__('حسابداری','malidev-accounting'),MDA_Capabilities::for_page('mda-accounting'),'mda-accounting',array(__CLASS__,'render'),'dashicons-chart-area',56);
+  add_submenu_page('mda-accounting','طرف‌حساب‌ها','طرف‌حساب‌ها',MDA_Capabilities::for_page('mda-parties'),'mda-parties',array(__CLASS__,'render_parties'));
+  add_submenu_page('mda-accounting','کدینگ حساب‌ها','کدینگ حساب‌ها',MDA_Capabilities::for_page('mda-accounts'),'mda-accounts',array(__CLASS__,'render_accounts'));
+  add_submenu_page('mda-accounting','گردش حساب اشخاص','گردش حساب اشخاص',MDA_Capabilities::for_page('mda-party-ledger'),'mda-party-ledger',array(__CLASS__,'render_party_ledger'));
+  add_submenu_page('mda-accounting','خرید و فاکتور خرید','خرید و انبار',MDA_Capabilities::for_page('mda-purchases'),'mda-purchases',array(__CLASS__,'render_purchases'));
+  add_submenu_page('mda-accounting','دریافت از مشتری','دریافت از مشتری',MDA_Capabilities::for_page('mda-sales-receipts'),'mda-sales-receipts',array(__CLASS__,'render_sales_receipts'));
+  add_submenu_page('mda-accounting','مرجوعی فروش و استرداد','مرجوعی فروش',MDA_Capabilities::for_page('mda-sales-returns'),'mda-sales-returns',array(__CLASS__,'render_sales_returns'));
+  add_submenu_page('mda-accounting','تطبیق سفارش‌های ووکامرس','تطبیق سفارش‌ها',MDA_Capabilities::for_page('mda-reconciliation'),'mda-reconciliation',array(__CLASS__,'render_reconciliation'));
+  add_submenu_page('mda-accounting','همگام‌سازی موجودی ووکامرس','همگام‌سازی موجودی',MDA_Capabilities::for_page('mda-stock-sync'),'mda-stock-sync',array(__CLASS__,'render_stock_sync'));
+  add_submenu_page('mda-accounting','گزارش‌های مالی','گزارش‌های مالی',MDA_Capabilities::for_page('mda-reports'),'mda-reports',array(__CLASS__,'render_reports'));
+  add_submenu_page('mda-accounting','صندوق، بانک و هزینه‌ها','صندوق و بانک',MDA_Capabilities::for_page('mda-cashbook'),'mda-cashbook',array(__CLASS__,'render_cashbook'));
+  add_submenu_page('mda-accounting','مغایرت‌گیری بانکی','مغایرت‌گیری بانکی',MDA_Capabilities::for_page('mda-bank-reconciliation'),'mda-bank-reconciliation',array(__CLASS__,'render_bank_reconciliation'));
  }
 
  public static function body_class(string $classes): string {
@@ -56,7 +56,7 @@ final class MDA_Admin {
   wp_enqueue_script('mda-admin',MDA_URL.'assets/js/admin.js',array('mda-bootstrap'),(string)filemtime($base.'js/admin.js'),true);
  }
  private static function guard(): void {
-  if(!current_user_can(MDA_Capabilities::MANAGE)) wp_die(esc_html__('شما اجازه دسترسی به این بخش را ندارید.','malidev-accounting'));
+  if(!MDA_Capabilities::user_can_action()) wp_die(esc_html__('شما اجازه دسترسی به این بخش را ندارید.','malidev-accounting'));
  }
  public static function render(): void {
   self::guard();$available=MDA_Database::is_available();$connected=false;$error='';$integrity='نامشخص';$stats=array('sales'=>0,'purchases'=>0,'parties'=>0,'events'=>0);
