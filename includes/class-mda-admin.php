@@ -14,6 +14,8 @@ final class MDA_Admin {
   add_action('admin_post_mda_record_purchase_payment',array(__CLASS__,'record_purchase_payment'));
   add_action('admin_post_mda_post_purchase_return',array(__CLASS__,'post_purchase_return'));
   add_action('admin_post_mda_record_sales_receipt',array(__CLASS__,'record_sales_receipt'));
+  add_action('admin_post_mda_post_sales_return',array(__CLASS__,'post_sales_return'));
+  add_action('admin_post_mda_record_sales_refund',array(__CLASS__,'record_sales_refund'));
  }
 
  public static function menu(): void {
@@ -23,6 +25,7 @@ final class MDA_Admin {
   add_submenu_page('mda-accounting','گردش حساب اشخاص','گردش حساب اشخاص',MDA_Capabilities::MANAGE,'mda-party-ledger',array(__CLASS__,'render_party_ledger'));
   add_submenu_page('mda-accounting','خرید و فاکتور خرید','خرید و انبار',MDA_Capabilities::MANAGE,'mda-purchases',array(__CLASS__,'render_purchases'));
   add_submenu_page('mda-accounting','دریافت از مشتری','دریافت از مشتری',MDA_Capabilities::MANAGE,'mda-sales-receipts',array(__CLASS__,'render_sales_receipts'));
+  add_submenu_page('mda-accounting','مرجوعی فروش و استرداد','مرجوعی فروش',MDA_Capabilities::MANAGE,'mda-sales-returns',array(__CLASS__,'render_sales_returns'));
  }
 
  public static function body_class(string $classes): string {
@@ -259,6 +262,58 @@ final class MDA_Admin {
   <?php if(!$rows): ?><tr><td colspan="8">فروشی ثبت نشده است.</td></tr><?php endif; ?></tbody></table></div>
   <?php
  }
+ public static function post_sales_return(): void {
+  self::guard();$saleId=absint($_POST['sale_id']??0);check_admin_referer('mda_post_sales_return_'.$saleId);
+  try{$raw=(array)wp_unslash($_POST['return_lines']??array());$lines=array();foreach($raw as $lineId=>$row){$qty=trim((string)($row['quantity']??''));if($qty==='')continue;$lines[]=array('sales_line_id'=>absint($lineId),'quantity_scaled'=>self::parse_quantity($qty));}
+   if(!$lines)throw new InvalidArgumentException('مقدار حداقل یک کالا را برای مرجوعی وارد کنید.');
+   $requestKey=sanitize_text_field(wp_unslash($_POST['request_key']??''));if(strlen($requestKey)<16||strlen($requestKey)>160)throw new InvalidArgumentException('کلید یکتای درخواست معتبر نیست.');
+   $date=sanitize_text_field(wp_unslash($_POST['return_date']??''));$result=MDA_Sales_Return_Service::post($saleId,$lines,'sales-return-'.$requestKey,$date);
+   $url=add_query_arg(array('page'=>'mda-sales-returns','sale_id'=>$saleId,'return_id'=>$result['return_id'],'mda_notice'=>$result['duplicate']?'sales_return_duplicate':'sales_return_posted'),admin_url('admin.php'));
+  }catch(Throwable $e){$url=add_query_arg(array('page'=>'mda-sales-returns','sale_id'=>$saleId,'mda_error'=>rawurlencode($e->getMessage())),admin_url('admin.php'));}
+  wp_safe_redirect($url);exit;
+ }
+ public static function record_sales_refund(): void {
+  self::guard();$returnId=absint($_POST['return_id']??0);check_admin_referer('mda_record_sales_refund_'.$returnId);
+  try{$amount=filter_var((string)($_POST['amount_minor']??''),FILTER_VALIDATE_INT);if(false===$amount||$amount<1)throw new InvalidArgumentException('مبلغ استرداد باید عدد صحیح مثبت باشد.');
+   $requestKey=sanitize_text_field(wp_unslash($_POST['request_key']??''));if(strlen($requestKey)<16||strlen($requestKey)>160)throw new InvalidArgumentException('کلید یکتای درخواست معتبر نیست.');
+   $date=sanitize_text_field(wp_unslash($_POST['payment_date']??''));$method=sanitize_key(wp_unslash($_POST['payment_method']??'bank'));
+   $result=MDA_Sales_Refund_Service::record($returnId,(int)$amount,absint($_POST['cash_account_id']??0),$method,'sales-refund-'.$requestKey,$date);
+   $return=MDA_Sales_Return_Service::return_record($returnId);$url=add_query_arg(array('page'=>'mda-sales-returns','sale_id'=>(int)$return['sales_document_id'],'return_id'=>$returnId,'mda_notice'=>$result['duplicate']?'sales_refund_duplicate':'sales_refund_posted'),admin_url('admin.php'));
+  }catch(Throwable $e){$url=add_query_arg(array('page'=>'mda-sales-returns','return_id'=>$returnId,'mda_error'=>rawurlencode($e->getMessage())),admin_url('admin.php'));}
+  wp_safe_redirect($url);exit;
+ }
+ public static function render_sales_returns(): void {
+  self::guard();if(!MDA_Database::is_available()){echo '<div class="wrap" dir="rtl"><h1>مرجوعی فروش و استرداد</h1><div class="notice notice-error"><p>PDO_SQLite فعال نیست.</p></div></div>';return;}
+  $saleId=absint($_GET['sale_id']??0);$returnId=absint($_GET['return_id']??0);$sale=$saleId?MDA_Sales_Return_Service::sale($saleId):null;$lines=$sale?MDA_Sales_Return_Service::sale_lines($saleId):array();$returns=$sale?MDA_Sales_Return_Service::returns($saleId):array();
+  $return=$returnId?MDA_Sales_Return_Service::return_record($returnId):null;$refundSummary=$return?MDA_Sales_Refund_Service::summary($returnId):null;$refunds=$return?MDA_Sales_Refund_Service::refunds($returnId):array();
+  $cash=MDA_Database::connection()->query("SELECT id,account_code,account_name FROM mda_accounts WHERE account_type='asset' AND is_control=0 AND is_active=1 AND archived_at IS NULL ORDER BY account_code")->fetchAll();
+  $sales=MDA_Sales_Return_Service::sales(200);$fmt=static function($v):string{return number_format((int)$v,0,'.',',');};
+  ?>
+  <div class="wrap" dir="rtl"><h1>مرجوعی فروش و استرداد وجه</h1><p>مرجوعی کالا با بهای تمام‌شده snapshot فروش به موجودی برمی‌گردد. استرداد نقدی/بانکی فقط از محل بستانکاری واقعی مشتری انجام می‌شود؛ اتصال خودکار به درگاه در این مرحله وجود ندارد.</p><?php self::notices(); ?>
+  <?php if($sale): ?><div class="mda-card"><h2>فروش <?php echo esc_html($sale['document_number']); ?> — سفارش #<?php echo (int)$sale['order_id']; ?></h2>
+   <p>مشتری: <strong><?php echo esc_html($sale['display_name']); ?></strong> | مبلغ فروش: <strong><?php echo esc_html($fmt($sale['total_minor']).' '.$sale['currency_code']); ?></strong> | مالیات ردیفی قابل برگشت: <?php echo esc_html($fmt(array_sum(array_map(static fn($l)=>(int)$l['tax_minor'],$lines)))); ?></p>
+   <h3 class="mda-section-title">ثبت مرجوعی کالا</h3>
+   <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>"><input type="hidden" name="action" value="mda_post_sales_return"><input type="hidden" name="sale_id" value="<?php echo (int)$saleId; ?>"><?php wp_nonce_field('mda_post_sales_return_'.$saleId); ?><input type="hidden" name="request_key" value="<?php echo esc_attr(wp_generate_uuid4()); ?>">
+   <div class="mda-table-wrap"><table class="widefat striped"><thead><tr><th>کالا</th><th>تعداد فروش</th><th>مرجوع‌شده</th><th>قابل مرجوعی</th><th>تعداد مرجوعی جدید</th></tr></thead><tbody>
+   <?php foreach($lines as $line): $remaining=(int)$line['quantity_scaled']-(int)$line['returned_quantity']; ?><tr><td><?php echo esc_html($line['product_name_snapshot']); ?> <small><?php echo esc_html($line['sku_snapshot']??''); ?></small></td><td><?php echo esc_html(number_format((int)$line['quantity_scaled']/(int)$line['quantity_scale'],6)); ?></td><td><?php echo esc_html(number_format((int)$line['returned_quantity']/(int)$line['quantity_scale'],6)); ?></td><td><?php echo esc_html(number_format($remaining/(int)$line['quantity_scale'],6)); ?></td><td><?php if($remaining>0): ?><input type="text" name="return_lines[<?php echo (int)$line['id']; ?>][quantity]" placeholder="خالی = بدون مرجوعی"><?php else: ?><span class="mda-chip">تکمیل‌شده</span><?php endif; ?></td></tr><?php endforeach; ?>
+   </tbody></table></div>
+   <p><label>تاریخ مرجوعی <input type="date" name="return_date" required value="<?php echo esc_attr(current_time('Y-m-d')); ?>"></label> <button class="button button-primary" type="submit">ثبت مرجوعی و سند اصلاحی</button></p>
+   </form>
+   <h3 class="mda-section-title">سوابق مرجوعی</h3><table class="widefat striped"><thead><tr><th>شماره مرجوعی</th><th>تاریخ</th><th>مبلغ کالا</th><th>مالیات</th><th>مجموع</th><th>COGS برگشتی</th><th>استردادشده</th><th>جزئیات</th></tr></thead><tbody>
+   <?php foreach($returns as $r): ?><tr><td><?php echo esc_html($r['return_number']); ?></td><td><?php echo esc_html($r['document_date']); ?></td><td><?php echo esc_html($fmt($r['product_total_minor'])); ?></td><td><?php echo esc_html($fmt($r['tax_total_minor'])); ?></td><td><?php echo esc_html($fmt($r['total_minor'])); ?></td><td><?php echo esc_html($fmt($r['cogs_reversed_minor'])); ?></td><td><?php echo esc_html($fmt($r['refunded_minor'])); ?></td><td><a href="<?php echo esc_url(add_query_arg(array('page'=>'mda-sales-returns','sale_id'=>$saleId,'return_id'=>(int)$r['id']),admin_url('admin.php'))); ?>">مدیریت استرداد</a></td></tr><?php endforeach; ?>
+   <?php if(!$returns): ?><tr><td colspan="8">هنوز مرجوعی ثبت نشده است.</td></tr><?php endif; ?></tbody></table></div>
+  <?php endif; ?>
+  <?php if($return&&$refundSummary): ?><div class="mda-card" style="margin-top:18px"><h2>استرداد بابت <?php echo esc_html($return['return_number']); ?></h2><p>مشتری: <?php echo esc_html($return['display_name']); ?> | مبلغ مرجوعی: <?php echo esc_html($fmt($return['total_minor'])); ?> | استرداد قبلی: <?php echo esc_html($fmt($refundSummary['refunded_minor'])); ?> | مانده سند مرجوعی: <strong><?php echo esc_html($fmt($refundSummary['remaining_minor'])); ?></strong> | بستانکاری قابل استرداد مشتری: <?php echo esc_html($fmt($refundSummary['customer_credit_minor'])); ?></p>
+   <?php if($refundSummary['available_minor']>0): ?><form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>"><input type="hidden" name="action" value="mda_record_sales_refund"><input type="hidden" name="return_id" value="<?php echo (int)$returnId; ?>"><?php wp_nonce_field('mda_record_sales_refund_'.$returnId); ?><input type="hidden" name="request_key" value="<?php echo esc_attr(wp_generate_uuid4()); ?>">
+   <p><label>مبلغ استرداد (<?php echo esc_html($return['currency_code']); ?>) <input type="number" min="1" max="<?php echo (int)$refundSummary['available_minor']; ?>" name="amount_minor" required></label>
+   <label>صندوق/بانک <select name="cash_account_id" required><option value="">انتخاب حساب</option><?php foreach($cash as $a): ?><option value="<?php echo (int)$a['id']; ?>"><?php echo esc_html($a['account_code'].' — '.$a['account_name']); ?></option><?php endforeach; ?></select></label>
+   <label>روش استرداد <select name="payment_method"><option value="bank">بانک</option><option value="cash">نقد</option><option value="pos">کارتخوان</option><option value="transfer">انتقال</option></select></label>
+   <label>تاریخ <input type="date" name="payment_date" required value="<?php echo esc_attr(current_time('Y-m-d')); ?>"></label></p><button class="button button-primary">ثبت استرداد وجه</button></form>
+   <?php else: ?><p>در حال حاضر بستانکاری قابل استرداد وجود ندارد یا این مرجوعی به‌طور کامل تسویه شده است.</p><?php endif; ?>
+   <h3 class="mda-section-title">سوابق استرداد وجه</h3><table class="widefat striped"><thead><tr><th>تاریخ</th><th>مبلغ</th><th>روش</th><th>صندوق/بانک</th><th>سند حسابداری</th></tr></thead><tbody><?php foreach($refunds as $r): ?><tr><td><?php echo esc_html($r['payment_date']); ?></td><td><?php echo esc_html($fmt($r['amount_minor'])); ?></td><td><?php echo esc_html($r['payment_method']); ?></td><td><?php echo esc_html($r['account_code'].' — '.$r['account_name']); ?></td><td><?php echo esc_html($r['accounting_document_number']); ?></td></tr><?php endforeach; ?><?php if(!$refunds): ?><tr><td colspan="5">استردادی ثبت نشده است.</td></tr><?php endif; ?></tbody></table></div><?php endif; ?>
+  <h2 class="mda-section-title">فروش‌های قابل بررسی</h2><table class="widefat striped"><thead><tr><th>سند فروش</th><th>سفارش</th><th>مشتری</th><th>تاریخ</th><th>مبلغ</th><th>مرجوعی</th><th>عملیات</th></tr></thead><tbody><?php foreach($sales as $row): ?><tr><td><?php echo esc_html($row['document_number']); ?></td><td>#<?php echo (int)$row['order_id']; ?></td><td><?php echo esc_html($row['display_name']); ?></td><td><?php echo esc_html($row['document_date']); ?></td><td><?php echo esc_html($fmt($row['total_minor'])); ?></td><td><?php echo esc_html($fmt($row['returned_minor'])); ?></td><td><a href="<?php echo esc_url(add_query_arg(array('page'=>'mda-sales-returns','sale_id'=>(int)$row['id']),admin_url('admin.php'))); ?>">انتخاب فروش</a></td></tr><?php endforeach; ?><?php if(!$sales): ?><tr><td colspan="7">فروشی ثبت نشده است.</td></tr><?php endif; ?></tbody></table></div>
+  <?php
+ }
  public static function render_parties(): void {
   self::guard();if(!MDA_Database::is_available()){echo '<div class="wrap"><div class="notice notice-error"><p>برای مدیریت طرف‌حساب‌ها باید PDO_SQLite فعال باشد.</p></div></div>';return;}$edit=!empty($_GET['edit'])?MDA_Party_Service::get(absint($_GET['edit'])):null;$roles=array('customer'=>'مشتری','supplier'=>'تأمین‌کننده','employee'=>'کارمند','partner'=>'شریک','other'=>'سایر');$rows=MDA_Party_Service::search(sanitize_text_field(wp_unslash($_GET['s']??'')));
   ?>
@@ -341,7 +396,7 @@ final class MDA_Admin {
 
  private static function notices(): void {
   if(!empty($_GET['mda_notice'])) {
-   $messages=array('party_saved'=>'طرف‌حساب ذخیره شد.','party_archived'=>'طرف‌حساب بایگانی شد.','account_saved'=>'حساب ذخیره شد.','purchase_draft_created'=>'پیش‌نویس خرید ایجاد شد.','purchase_posted'=>'فاکتور قطعی و موجودی ثبت شد.','purchase_already_posted'=>'این فاکتور قبلاً قطعی شده است.','payment_recorded'=>'پرداخت مرحله‌ای ثبت شد.','payment_duplicate'=>'این پرداخت قبلاً ثبت شده است.','purchase_return_posted'=>'مرجوعی و سند اصلاحی ثبت شد.','sales_receipt_recorded'=>'دریافت مشتری و سند حسابداری ثبت شد.','sales_receipt_duplicate'=>'این دریافت قبلاً ثبت شده است.');
+   $messages=array('party_saved'=>'طرف‌حساب ذخیره شد.','party_archived'=>'طرف‌حساب بایگانی شد.','account_saved'=>'حساب ذخیره شد.','purchase_draft_created'=>'پیش‌نویس خرید ایجاد شد.','purchase_posted'=>'فاکتور قطعی و موجودی ثبت شد.','purchase_already_posted'=>'این فاکتور قبلاً قطعی شده است.','payment_recorded'=>'پرداخت مرحله‌ای ثبت شد.','payment_duplicate'=>'این پرداخت قبلاً ثبت شده است.','purchase_return_posted'=>'مرجوعی و سند اصلاحی ثبت شد.','sales_receipt_recorded'=>'دریافت مشتری و سند حسابداری ثبت شد.','sales_receipt_duplicate'=>'این دریافت قبلاً ثبت شده است.','sales_return_posted'=>'مرجوعی فروش و سند اصلاحی ثبت شد.','sales_return_duplicate'=>'این مرجوعی قبلاً ثبت شده است.','sales_refund_posted'=>'استرداد وجه و سند حسابداری ثبت شد.','sales_refund_duplicate'=>'این استرداد قبلاً ثبت شده است.');
    $key=sanitize_key(wp_unslash($_GET['mda_notice']));$message=$messages[$key]??'عملیات با موفقیت انجام شد.';
    echo '<div class="notice notice-success"><p>'.esc_html($message).'</p></div>';
   }

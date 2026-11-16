@@ -12,7 +12,7 @@ final class MDA_Outbox_Service {
   if($warehouse<1){$q=MDA_Database::connection()->query("SELECT id FROM mda_warehouses WHERE warehouse_code='MAIN' AND is_active=1 LIMIT 1");$warehouse=(int)$q->fetchColumn();}
   $items=array();foreach($order->get_items('line_item') as $itemId=>$item){
    $product=$item->get_product();$qty=(string)wc_format_decimal($item->get_quantity(),6);
-   $scaled=self::scale_quantity($qty);$items[]=array('order_item_id'=>(int)$itemId,'product_id'=>(int)$item->get_product_id(),'variation_id'=>(int)$item->get_variation_id(),'name'=>(string)$item->get_name(),'sku'=>$product?$product->get_sku():null,'quantity_scaled'=>$scaled,'quantity_scale'=>1000000,'revenue_minor'=>self::money($item->get_total()),);
+   $scaled=self::scale_quantity($qty);$items[]=array('order_item_id'=>(int)$itemId,'product_id'=>(int)$item->get_product_id(),'variation_id'=>(int)$item->get_variation_id(),'name'=>(string)$item->get_name(),'sku'=>$product?$product->get_sku():null,'quantity_scaled'=>$scaled,'quantity_scale'=>1000000,'revenue_minor'=>self::money($item->get_total()),'tax_minor'=>self::money($item->get_total_tax()),);
   }
   $shipping=0;foreach($order->get_items('shipping') as $item)$shipping+=self::money($item->get_total());
   $fees=0;foreach($order->get_items('fee') as $item)$fees+=self::money($item->get_total());
