@@ -253,7 +253,10 @@ final class MDA_Price_Service {
 			$in = implode( ',', array_fill( 0, count( $ids ), '?' ) );
 			$q  = $db->prepare( "SELECT CASE WHEN variation_id > 0 THEN variation_id ELSE product_id END AS id, SUM(quantity_scaled) AS q, MAX(quantity_scale) AS s, MAX(average_cost_minor) AS avg
 				FROM mda_product_cost_state WHERE (CASE WHEN variation_id > 0 THEN variation_id ELSE product_id END) IN ($in) GROUP BY id" );
-			$q->execute( $ids );
+			foreach ( $ids as $i => $id ) {
+				$q->bindValue( $i + 1, $id, PDO::PARAM_INT ); // Integer binding: the CASE expression has no affinity.
+			}
+			$q->execute();
 			$out = array();
 			foreach ( $q->fetchAll() as $r ) {
 				$out[ (int) $r['id'] ] = array( 'avg' => (int) $r['avg'], 'qty' => (int) $r['s'] > 0 ? (int) $r['q'] / (int) $r['s'] : 0 );
