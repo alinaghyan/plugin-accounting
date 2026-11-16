@@ -115,6 +115,7 @@ $db->prepare("INSERT INTO mda_accounts (account_code,account_name,account_type,p
 $bankAccount=(int)$db->lastInsertId();
 $cashReceipt=MDA_Cash_Service::record('receipt',5000,$cash,$cashIncome,0,'IRR','bank','test-cash-receipt-001','2026-11-16','درآمد متفرقه تست','CASH-IN-001');
 if(!empty($cashReceipt['duplicate']))throw new RuntimeException('Cash receipt was incorrectly marked duplicate.');
+$storedCashHash=$db->query("SELECT payload_hash FROM mda_cash_transactions WHERE idempotency_key='test-cash-receipt-001'")->fetchColumn();$expectedCashHash=hash('sha256',wp_json_encode(array('receipt',5000,$cash,$cashIncome,0,'IRR','bank','2026-11-16','درآمد متفرقه تست','CASH-IN-001')));if(!hash_equals((string)$storedCashHash,$expectedCashHash))throw new RuntimeException('Cash receipt test payload hash mismatch: stored='.(string)$storedCashHash.' expected='.$expectedCashHash);
 $cashReceiptAgain=MDA_Cash_Service::record('receipt',5000,$cash,$cashIncome,0,'IRR','bank','test-cash-receipt-001','2026-11-16','درآمد متفرقه تست','CASH-IN-001');
 if(empty($cashReceiptAgain['duplicate']))throw new RuntimeException('Cash receipt idempotency failed.');
 $receiptLines=$db->prepare('SELECT account_id,debit_minor,credit_minor FROM mda_journal_entries WHERE document_id=:id ORDER BY entry_number');$receiptLines->execute(array(':id'=>$cashReceipt['document_id']));$receiptRows=$receiptLines->fetchAll();
