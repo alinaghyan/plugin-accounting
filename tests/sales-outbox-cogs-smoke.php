@@ -13,7 +13,7 @@ final class MDA_Database {
  public static function connection():PDO {if(!self::$pdo){self::$pdo=new PDO('sqlite::memory:');self::$pdo->setAttribute(PDO::ATTR_ERRMODE,PDO::ERRMODE_EXCEPTION);self::$pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE,PDO::FETCH_ASSOC);self::$pdo->exec('PRAGMA foreign_keys=ON');}return self::$pdo;}
  public static function transaction(callable $callback){$db=self::connection();$db->beginTransaction();try{$result=$callback($db);$db->commit();return$result;}catch(Throwable $e){if($db->inTransaction())$db->rollBack();throw$e;}}
 }
-$files=array('001_initial.sql','002_parties-and-chart-of-accounts.sql','003-party-subledger.sql','004-purchasing-inventory-foundation.sql','005-purchase-posting-costing.sql','006-immutable-purchase-history.sql','007-purchase-settlements-and-returns.sql','008-sales-outbox-and-cogs.sql','009-customer-receipts.sql','010-sales-returns-and-refunds.sql','011-woocommerce-reconciliation.sql','012-woocommerce-stock-sync.sql','013-cash-bank-and-expenses.sql');
+$files=array('001_initial.sql','002_parties-and-chart-of-accounts.sql','003-party-subledger.sql','004-purchasing-inventory-foundation.sql','005-purchase-posting-costing.sql','006-immutable-purchase-history.sql','007-purchase-settlements-and-returns.sql','008-sales-outbox-and-cogs.sql','009-customer-receipts.sql','010-sales-returns-and-refunds.sql','011-woocommerce-reconciliation.sql','012-woocommerce-stock-sync.sql','013-cash-bank-and-expenses.sql','014-bank-statement-reconciliation.sql');
 foreach($files as $file){$sql=file_get_contents(dirname(__DIR__).'/database/migrations/'.$file);if(false===$sql)throw new RuntimeException('Missing migration '.$file);MDA_Database::connection()->exec($sql);}
 require_once dirname(__DIR__).'/includes/class-mda-sales-service.php';
 require_once dirname(__DIR__).'/includes/class-mda-outbox-service.php';
@@ -23,6 +23,7 @@ require_once dirname(__DIR__).'/includes/class-mda-reconciliation-service.php';
 require_once dirname(__DIR__).'/includes/class-mda-stock-sync-service.php';
 require_once dirname(__DIR__).'/includes/class-mda-report-service.php';
 require_once dirname(__DIR__).'/includes/class-mda-cash-service.php';
+require_once dirname(__DIR__).'/includes/class-mda-bank-reconciliation-service.php';
 class WooCommerce {}
 final class SmokeWCDate { public function date($format){return gmdate($format,strtotime('2026-11-16 10:00:00'));} }
 final class SmokeWCProduct { public static string $stock='8'; public static string $stockStatus='instock'; public function get_sku(){return 'T-502';} public function managing_stock(){return true;} public function get_manage_stock(){return true;} public function get_stock_quantity(){return self::$stock;} public function set_stock_quantity($value){self::$stock=(string)$value;} public function set_stock_status($value){self::$stockStatus=(string)$value;} public function save(){return 1;} }
@@ -113,8 +114,35 @@ if(!empty($cashTransfer['duplicate']))throw new RuntimeException('Cash transfer 
 try{MDA_Cash_Service::record('payment',8000,$cash,$cashExpense,0,'IRR','bank','test-cash-overdraft-001','2026-11-16','پرداخت بیش از موجودی','CASH-OUT-OVER');throw new RuntimeException('Cash overdraft was accepted.');}catch(RuntimeException $expected){if($expected->getMessage()==='Cash overdraft was accepted.')throw $expected;}
 $cashBalance=$db->prepare("SELECT COALESCE(SUM(j.debit_minor-j.credit_minor),0) FROM mda_journal_entries j JOIN mda_documents d ON d.id=j.document_id WHERE j.account_id=:account AND d.currency_code='IRR' AND d.document_status='posted'");$cashBalance->execute(array(':account'=>$cash));if((int)$cashBalance->fetchColumn()!==7600)throw new RuntimeException('Cash balance after receipt, payment and transfer is incorrect.');
 $bankBalance=$cashBalance;$bankBalance->execute(array(':account'=>$bankAccount));if((int)$bankBalance->fetchColumn()!==1000)throw new RuntimeException('Destination bank balance after transfer is incorrect.');
-if(count(MDA_Cash_Service::transactions(100))!==3)throw new RuntimeException('Cash transaction history is incomplete.');
+$bankPayment=MDA_Cash_Service::record('payment',200,$bankAccount,$cashExpense,0,'IRR','bank','test-bank-payment-001','2026-11-16','پرداخت هزینه بانکی تست','BANK-OUT-001');
+if(!empty($bankPayment['duplicate']))throw new RuntimeException('Bank payment was incorrectly marked duplicate.');
+$bankBalance->execute(array(':account'=>$bankAccount));if((int)$bankBalance->fetchColumn()!==800)throw new RuntimeException('Bank balance after outgoing payment is incorrect.');
+if(count(MDA_Cash_Service::transactions(100))!==4)throw new RuntimeException('Cash transaction history is incomplete.');
 try{$db->exec("UPDATE mda_cash_transactions SET amount_minor=1 WHERE id=".(int)$cashReceipt['transaction_id']);throw new RuntimeException('Posted cash transaction was mutable.');}catch(PDOException $expected){}
 $allJournal=$db->query('SELECT SUM(debit_minor) debit,SUM(credit_minor) credit FROM mda_journal_entries')->fetch();if((int)$allJournal['debit']!==(int)$allJournal['credit'])throw new RuntimeException('Cash/bank journals are not balanced.');
-$cashPl=MDA_Report_Service::profit_and_loss('2026-11-16','2026-11-16');if(($cashPl['totals']['IRR']['net_profit_minor']??null)!==5500)throw new RuntimeException('Cash income and operating expense did not flow into profit and loss correctly.');
-echo "OK: Outbox processing, sales posting, balanced journal, weighted-average COGS, stock issue, immutable snapshots, customer receipts, sales returns, COGS reversal, inventory restoration, customer refunds cash receipts, expense payments, transfers, cash balances, overdraft protection and idempotency passed.\\n";
+$statementCsv="date,direction,amount,reference,description\\n2026-11-16,credit,1000,CASH-TR-001,واریز انتقال\\n2026-11-16,debit,200,BANK-OUT-001,پرداخت هزینه\\n2026-11-16,debit,25,FEE-001,کارمزد ثبت‌نشده";
+$statement=MDA_Bank_Reconciliation_Service::import_csv($bankAccount,'IRR','STMT-2026-11-16',0,775,$statementCsv,'test-bank-statement-001');
+if(!empty($statement['duplicate'])||$statement['line_count']!==3)throw new RuntimeException('Bank statement import failed.');
+$statementAgain=MDA_Bank_Reconciliation_Service::import_csv($bankAccount,'IRR','STMT-2026-11-16',0,775,$statementCsv,'test-bank-statement-001');
+if(empty($statementAgain['duplicate']))throw new RuntimeException('Bank statement import idempotency failed.');
+$statementLines=MDA_Bank_Reconciliation_Service::lines((int)$statement['import_id']);if(count($statementLines)!==3)throw new RuntimeException('Bank statement line import count is incorrect.');
+$creditCandidates=MDA_Bank_Reconciliation_Service::candidates((int)$statementLines[0]['id']);$debitCandidates=MDA_Bank_Reconciliation_Service::candidates((int)$statementLines[1]['id']);
+if(count($creditCandidates)!==1||count($debitCandidates)!==1)throw new RuntimeException('Bank reconciliation did not find exact ledger candidates.');
+$matched1=MDA_Bank_Reconciliation_Service::match((int)$statementLines[0]['id'],(int)$creditCandidates[0]['journal_entry_id']);
+$matched1Again=MDA_Bank_Reconciliation_Service::match((int)$statementLines[0]['id'],(int)$creditCandidates[0]['journal_entry_id']);
+if(!empty($matched1['duplicate'])||empty($matched1Again['duplicate']))throw new RuntimeException('Bank reconciliation matching idempotency failed.');
+MDA_Bank_Reconciliation_Service::match((int)$statementLines[1]['id'],(int)$debitCandidates[0]['journal_entry_id']);
+$statementSummary=MDA_Bank_Reconciliation_Service::summary((int)$statement['import_id']);
+if($statementSummary['matched_lines']!==2||$statementSummary['unmatched_lines']!==1||$statementSummary['ignored_lines']!==0)throw new RuntimeException('Bank reconciliation summary is incorrect.');
+MDA_Bank_Reconciliation_Service::ignore((int)$statementLines[2]['id']);
+$statementSummary=MDA_Bank_Reconciliation_Service::summary((int)$statement['import_id']);if($statementSummary['ignored_lines']!==1||$statementSummary['unmatched_lines']!==0)throw new RuntimeException('Bank statement ignore state failed.');
+MDA_Bank_Reconciliation_Service::unignore((int)$statementLines[2]['id']);
+MDA_Bank_Reconciliation_Service::unmatch((int)$statementLines[1]['id']);
+$statementSummary=MDA_Bank_Reconciliation_Service::summary((int)$statement['import_id']);if($statementSummary['matched_lines']!==1||$statementSummary['unmatched_lines']!==2)throw new RuntimeException('Bank statement unmatch event failed.');
+MDA_Bank_Reconciliation_Service::match((int)$statementLines[1]['id'],(int)$debitCandidates[0]['journal_entry_id']);
+$statementSummary=MDA_Bank_Reconciliation_Service::summary((int)$statement['import_id']);if($statementSummary['matched_lines']!==2||$statementSummary['unmatched_lines']!==1)throw new RuntimeException('Bank statement rematch failed.');
+try{$db->exec("UPDATE mda_bank_statement_lines SET amount_minor=1 WHERE id=".(int)$statementLines[0]['id']);throw new RuntimeException('Imported bank statement line was mutable.');}catch(PDOException $expected){}
+try{$db->exec("DELETE FROM mda_bank_reconciliation_events WHERE statement_line_id=".(int)$statementLines[0]['id']);throw new RuntimeException('Bank reconciliation history was deletable.');}catch(PDOException $expected){}
+try{MDA_Bank_Reconciliation_Service::import_csv($bankAccount,'IRR','STMT-BAD',0,776,$statementCsv,'test-bank-statement-bad');throw new RuntimeException('Invalid statement closing balance was accepted.');}catch(InvalidArgumentException $expected){}
+$cashPl=MDA_Report_Service::profit_and_loss('2026-11-16','2026-11-16');if(($cashPl['totals']['IRR']['net_profit_minor']??null)!==5300)throw new RuntimeException('Cash income and operating expense did not flow into profit and loss correctly.');
+echo "OK: Outbox processing, sales posting, balanced journal, weighted-average COGS, stock issue, immutable snapshots, customer receipts, sales returns, COGS reversal, inventory restoration, customer refunds cash receipts, expense payments, transfers, cash balances, overdraft protection, bank statement import, reconciliation, ignore/unmatch, and idempotency passed.\\n";
