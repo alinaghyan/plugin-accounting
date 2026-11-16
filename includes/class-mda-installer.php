@@ -2,7 +2,7 @@
 defined( 'ABSPATH' ) || exit;
 
 final class MDA_Installer {
- private const SCHEMA_VERSION=12;
+ private const SCHEMA_VERSION=13;
  public static function activate(): void {
   if(!MDA_Database::is_available()) wp_die(esc_html__('برای نصب MaliDev Accounting باید افزونه PHP با نام PDO_SQLite فعال باشد.','malidev-accounting'),esc_html__('پیش‌نیاز نصب موجود نیست','malidev-accounting'),array('back_link'=>true));
   try { self::migrate(); MDA_Capabilities::add(); }
@@ -25,7 +25,8 @@ final class MDA_Installer {
    9=>array('009-customer-receipts.sql','فایل مهاجرت دریافت‌های مشتری پیدا نشد.'),
    10=>array('010-sales-returns-and-refunds.sql','فایل مهاجرت مرجوعی فروش و استرداد مشتری پیدا نشد.'),
    11=>array('011-woocommerce-reconciliation.sql','فایل مهاجرت گزارش تطبیق ووکامرس پیدا نشد.'),
-   12=>array('012-woocommerce-stock-sync.sql','فایل مهاجرت همگام‌سازی موجودی ووکامرس پیدا نشد.')
+   12=>array('012-woocommerce-stock-sync.sql','فایل مهاجرت همگام‌سازی موجودی ووکامرس پیدا نشد.'),
+   13=>array('013-cash-bank-and-expenses.sql','فایل مهاجرت صندوق، بانک و هزینه‌ها پیدا نشد.')
   );
   foreach($migrations as $target=>$migration){
    if($version >= $target) continue;
