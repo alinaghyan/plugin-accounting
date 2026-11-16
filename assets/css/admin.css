@@ -72,3 +72,13 @@ body.mda-admin .mda-empty{padding:34px;text-align:center;color:var(--mda-muted)}
 .mda-amount{direction:ltr;text-align:left;min-width:120px}
 .mda-journal-lines select{max-width:260px}
 .mda-journal-lines tfoot th{font-size:14px}
+
+/* WordPress core gives .card a 520px max-width; accounting cards are full width. */
+body.mda-admin #wpbody-content .mda-card{max-width:none;margin-bottom:18px}
+body.mda-admin #wpbody-content .mda-shell a{text-decoration:none}
+body.mda-admin #wpbody-content .mda-shell__tab{color:var(--mda-ink,#17243b)}
+body.mda-admin #wpbody-content .mda-shell__tab.is-active{color:#fff}
+body.mda-admin #wpbody-content .mda-shell__pill{color:var(--mda-muted,#748198)}
+body.mda-admin #wpbody-content .mda-shell__pill.is-active{color:var(--mda-primary,#635bdb)}
+body.mda-admin #wpbody-content .mda-journal-lines select{min-width:220px}
+body.mda-admin #wpbody-content .mda-shell{margin-top:16px}

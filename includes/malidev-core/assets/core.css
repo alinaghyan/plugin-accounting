@@ -7,3 +7,4 @@
 .malidev-badge--expired,.malidev-badge--invalid,.malidev-badge--domain_mismatch,.malidev-badge--disabled{background:#fcebee;color:#b32d48}
 .malidev-badge--unverified,.malidev-badge--missing{background:#fff6e0;color:#8a5a00}
 .malidev-license-form{margin-top:10px}
+.malidev-license-form input[type=text]{width:100%;max-width:100%;box-sizing:border-box;margin-bottom:6px}

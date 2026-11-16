@@ -223,7 +223,8 @@ final class MaliDev_Core_License {
 			return;
 		}
 		$screen = function_exists( 'get_current_screen' ) ? get_current_screen() : null;
-		if ( $screen && false !== strpos( (string) $screen->id, MaliDev_Core::parent_slug() ) ) {
+		// Only on the dashboard, plugins and updates screens: never inside the products' own work screens.
+		if ( ! $screen || ! in_array( $screen->id, array( 'dashboard', 'plugins', 'update-core' ), true ) ) {
 			return;
 		}
 		foreach ( MaliDev_Core::products() as $slug => $product ) {

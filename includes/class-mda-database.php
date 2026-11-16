@@ -132,8 +132,11 @@ final class MDA_Database {
 	}
 
 	private static function prepare_directory( string $directory, bool $allow_webroot ): bool {
-		if ( ! is_dir( $directory ) && ! wp_mkdir_p( $directory ) ) {
-			return false;
+		if ( ! is_dir( $directory ) ) {
+			if ( ! wp_mkdir_p( $directory ) ) {
+				return false;
+			}
+			@chmod( $directory, 0700 ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged -- best effort; only the PHP user needs access.
 		}
 		if ( ! is_writable( $directory ) || ! self::is_private_location( $directory, $allow_webroot ) ) {
 			return false;

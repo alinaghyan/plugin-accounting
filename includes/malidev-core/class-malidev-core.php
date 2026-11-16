@@ -144,7 +144,7 @@ final class MaliDev_Core {
 		if ( ! current_user_can( 'manage_options' ) ) {
 			wp_die( esc_html__( 'دسترسی غیرمجاز', 'malidev-core' ) );
 		}
-		echo '<div class="wrap malidev-hub"><h1>' . esc_html( self::MENU_TITLE ) . '</h1>';
+		echo '<div class="wrap malidev-hub" dir="rtl"><h1>' . esc_html( self::MENU_TITLE ) . '</h1>';
 		echo '<p class="description">' . esc_html__( 'افزونه‌های MaliDev نصب‌شده روی این سایت، نسخه و وضعیت لایسنس آن‌ها.', 'malidev-core' ) . '</p>';
 		MaliDev_Core_License::render_notices();
 		echo '<div class="malidev-grid">';
