@@ -3,7 +3,7 @@
  * Plugin Name: MaliDev Accounting & ERP
  * Plugin URI: https://malidev.ir/
  * Description: هسته حسابداری و مدیریت عملیات فروشگاه ووکامرس با پایگاه داده اختصاصی SQLite.
- * Version: 0.7.0
+ * Version: 0.8.0
  * Requires at least: 6.3
  * Requires PHP: 8.1
  * Author: MaliDev
@@ -11,7 +11,7 @@
  * Domain Path: /languages
  */
 defined( 'ABSPATH' ) || exit;
-define( 'MDA_VERSION', '0.7.0' );
+define( 'MDA_VERSION', '0.8.0' );
 define( 'MDA_FILE', __FILE__ );
 define( 'MDA_PATH', plugin_dir_path( __FILE__ ) );
 define( 'MDA_URL', plugin_dir_url( __FILE__ ) );
