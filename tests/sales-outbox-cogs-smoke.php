@@ -23,6 +23,7 @@ require_once dirname(__DIR__).'/includes/class-mda-reconciliation-service.php';
 require_once dirname(__DIR__).'/includes/class-mda-stock-sync-service.php';
 require_once dirname(__DIR__).'/includes/class-mda-report-service.php';
 require_once dirname(__DIR__).'/includes/class-mda-cash-service.php';
+require_once dirname(__DIR__).'/includes/class-mda-cash-service.php';
 class WooCommerce {}
 final class SmokeWCDate { public function date($format){return gmdate($format,strtotime('2026-11-16 10:00:00'));} }
 final class SmokeWCProduct { public static string $stock='8'; public static string $stockStatus='instock'; public function get_sku(){return 'T-502';} public function managing_stock(){return true;} public function get_manage_stock(){return true;} public function get_stock_quantity(){return self::$stock;} public function set_stock_quantity($value){self::$stock=(string)$value;} public function set_stock_status($value){self::$stockStatus=(string)$value;} public function save(){return 1;} }
@@ -106,4 +107,25 @@ if((int)$db->query('SELECT COUNT(*) FROM mda_reconciliation_runs')->fetchColumn(
 $stockBlocked=MDA_Stock_Sync_Service::run_batch($warehouse,100);
 if($stockBlocked['status']!=='blocked'||$stockBlocked['pending_events']<1)throw new RuntimeException('Stock sync was not blocked while an accounting outbox event was pending.');
 $changed=$payload;$changed['total_minor']=6601;$rejected=false;try{MDA_Sales_Service::post_order_payload($changed);}catch(RuntimeException $e){$rejected=true;}if(!$rejected)throw new RuntimeException('Changed payload reused the same idempotency key.');
-echo "OK: Outbox processing, sales posting, balanced journal, weighted-average COGS, stock issue, immutable snapshots, customer receipts, sales returns, COGS reversal, inventory restoration, customer refunds and idempotency passed.\\n";
+$cashIncome=(int)$db->query("SELECT id FROM mda_accounts WHERE account_code='4400'")->fetchColumn();
+$cashExpense=(int)$db->query("SELECT id FROM mda_accounts WHERE account_code='5210'")->fetchColumn();
+$bankParent=(int)$db->query("SELECT id FROM mda_accounts WHERE account_code='1120'")->fetchColumn();
+$db->prepare("INSERT INTO mda_accounts (account_code,account_name,account_type,parent_id,is_active,created_at,normal_balance,is_control,is_system,allow_manual_entry,description,sort_order) VALUES ('1121','بانک آزمایشی','asset',:parent,1,:now,'debit',0,0,1,'حساب بانکی تست',41)")->execute(array(':parent'=>$bankParent,':now'=>$now));
+$bankAccount=(int)$db->lastInsertId();
+$cashReceipt=MDA_Cash_Service::record('receipt',5000,$cash,$cashIncome,0,'IRR','bank','test-cash-receipt-001','2026-11-16','درآمد متفرقه تست','CASH-IN-001');
+if(!empty($cashReceipt['duplicate']))throw new RuntimeException('Cash receipt was incorrectly marked duplicate.');
+$cashReceiptAgain=MDA_Cash_Service::record('receipt',5000,$cash,$cashIncome,0,'IRR','bank','test-cash-receipt-001','2026-11-16','درآمد متفرقه تست','CASH-IN-001');
+if(empty($cashReceiptAgain['duplicate']))throw new RuntimeException('Cash receipt idempotency failed.');
+$receiptLines=$db->prepare('SELECT account_id,debit_minor,credit_minor FROM mda_journal_entries WHERE document_id=:id ORDER BY entry_number');$receiptLines->execute(array(':id'=>$cashReceipt['document_id']));$receiptRows=$receiptLines->fetchAll();
+if((int)$receiptRows[0]['account_id']!==$cash||(int)$receiptRows[0]['debit_minor']!==5000||(int)$receiptRows[0]['credit_minor']!==0||(int)$receiptRows[1]['account_id']!==$cashIncome||(int)$receiptRows[1]['credit_minor']!==5000)throw new RuntimeException('Cash receipt journal debit/credit direction is incorrect.');
+$cashPayment=MDA_Cash_Service::record('payment',2000,$cash,$cashExpense,0,'IRR','bank','test-cash-payment-001','2026-11-16','هزینه عملیاتی تست','CASH-OUT-001');
+if(!empty($cashPayment['duplicate']))throw new RuntimeException('Cash payment was incorrectly marked duplicate.');
+$cashTransfer=MDA_Cash_Service::record('transfer',1000,$cash,0,$bankAccount,'IRR','transfer','test-cash-transfer-001','2026-11-16','انتقال به بانک تست','CASH-TR-001');
+if(!empty($cashTransfer['duplicate']))throw new RuntimeException('Cash transfer was incorrectly marked duplicate.');
+try{MDA_Cash_Service::record('payment',8000,$cash,$cashExpense,0,'IRR','bank','test-cash-overdraft-001','2026-11-16','پرداخت بیش از موجودی','CASH-OUT-OVER');throw new RuntimeException('Cash overdraft was accepted.');}catch(RuntimeException $expected){if($expected->getMessage()==='Cash overdraft was accepted.')throw $expected;}
+$cashBalance=$db->prepare("SELECT COALESCE(SUM(j.debit_minor-j.credit_minor),0) FROM mda_journal_entries j JOIN mda_documents d ON d.id=j.document_id WHERE j.account_id=:account AND d.currency_code='IRR' AND d.document_status='posted'");$cashBalance->execute(array(':account'=>$cash));if((int)$cashBalance->fetchColumn()!==7600)throw new RuntimeException('Cash balance after receipt, payment and transfer is incorrect.');
+$bankBalance=$cashBalance;$bankBalance->execute(array(':account'=>$bankAccount));if((int)$bankBalance->fetchColumn()!==1000)throw new RuntimeException('Destination bank balance after transfer is incorrect.');
+if(count(MDA_Cash_Service::transactions(100))!==3)throw new RuntimeException('Cash transaction history is incomplete.');
+try{$db->exec("UPDATE mda_cash_transactions SET amount_minor=1 WHERE id=".(int)$cashReceipt['transaction_id']);throw new RuntimeException('Posted cash transaction was mutable.');}catch(PDOException $expected){}
+$allJournal=$db->query('SELECT SUM(debit_minor) debit,SUM(credit_minor) credit FROM mda_journal_entries')->fetch();if((int)$allJournal['debit']!==(int)$allJournal['credit'])throw new RuntimeException('Cash/bank journals are not balanced.');
+echo "OK: Outbox processing, sales posting, balanced journal, weighted-average COGS, stock issue, immutable snapshots, customer receipts, sales returns, COGS reversal, inventory restoration, customer refunds cash receipts, expense payments, transfers, cash balances, overdraft protection and idempotency passed.\\n";
