@@ -28,7 +28,7 @@ final class MDA_Admin {
   self::guard();$available=MDA_Database::is_available();$connected=false;$error='';$integrity='';
   if($available){try{$pdo=MDA_Database::connection();$connected=true;$integrity=(string)$pdo->query('PRAGMA quick_check')->fetchColumn();}catch(Throwable $e){$error=$e->getMessage();}}
   ?>
-  <div class="wrap" dir="rtl"><h1>حسابداری MaliDev</h1><p>نسخه توسعه‌ای هسته حسابداری؛ ثبت خرید و قطعی‌سازی آن فعال است. اتصال فروش ووکامرس هنوز فعال نشده است.</p>
+  <div class="wrap" dir="rtl"><h1>حسابداری MaliDev</h1><p>نسخه توسعه‌ای هسته حسابداری؛ ثبت خرید، اتصال فروش ووکامرس و فروش تلفنی از طریق صف SQLite فعال شده‌اند.</p>
   <table class="widefat striped" style="max-width:900px"><tbody>
   <tr><th>نسخه افزونه</th><td><?php echo esc_html(MDA_VERSION); ?></td></tr>
   <tr><th>PDO_SQLite</th><td><?php echo $available?'فعال':'غیرفعال'; ?></td></tr>
@@ -36,7 +36,7 @@ final class MDA_Admin {
   <?php if($connected): ?><tr><th>سلامت SQLite</th><td><?php echo esc_html($integrity); ?></td></tr><?php endif; ?>
   <?php if($error): ?><tr><th>خطا</th><td><?php echo esc_html($error); ?></td></tr><?php endif; ?>
   </tbody></table>
-  <p>برای جلوگیری از ثبت ناقص، اتصال خودکار سفارش‌های WooCommerce تا تکمیل صف همگام‌سازی غیرفعال است.</p></div>
+  <p>ثبت فروش پس از ورود سفارش به وضعیت در حال انجام یا تکمیل‌شده به‌صورت غیرهم‌زمان پردازش می‌شود؛ خطاهای صف باید از بخش فروش تلفنی / حضوری بررسی شوند.</p></div>
   <?php
  }
 
