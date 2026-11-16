@@ -20,7 +20,7 @@ final class MDA_Stock_Sync_Service {
    else {
     $q=$db->prepare('SELECT c.product_id,c.variation_id,c.quantity_scaled,c.quantity_scale,c.currency_code,COALESCE(SUM(m.quantity_scaled),0) ledger_quantity,COUNT(DISTINCT m.quantity_scale) scale_count FROM mda_product_cost_state c LEFT JOIN mda_inventory_movements m ON m.product_id=c.product_id AND m.variation_id=c.variation_id AND m.warehouse_id=c.warehouse_id WHERE c.warehouse_id=:warehouse AND (c.product_id>:product OR (c.product_id=:product AND c.variation_id>:variation)) GROUP BY c.product_id,c.variation_id ORDER BY c.product_id,c.variation_id LIMIT :limit');
     $q->bindValue(':warehouse',$warehouseId,PDO::PARAM_INT);$q->bindValue(':product',(int)$cursor['product_id'],PDO::PARAM_INT);$q->bindValue(':variation',(int)$cursor['variation_id'],PDO::PARAM_INT);$q->bindValue(':limit',$limit,PDO::PARAM_INT);$q->execute();$pageRows=$q->fetchAll();
-    $insert=$db->prepare('INSERT INTO mda_stock_sync_items (run_id,warehouse_id,product_id,variation_id,quantity_scaled,quantity_scale,sqlite_quantity,woo_quantity_before,woo_quantity_after,status,message,created_at) VALUES (:run,:warehouse,:product,:variation,:qty,:scale,:sqlite,:before,:after,:status,:message,:now)');
+    $itemLogs=array();
     foreach($pageRows as $row){
      $counts['scanned']++;$productId=(int)$row['product_id'];$variationId=(int)$row['variation_id'];$qty=(int)$row['quantity_scaled'];$scale=(int)$row['quantity_scale'];$before=null;$after=null;$itemStatus='failed';$itemMessage='';
      try{
@@ -37,7 +37,7 @@ final class MDA_Stock_Sync_Service {
       }
      }catch(Throwable $e){$itemStatus='failed';$itemMessage=substr($e->getMessage(),0,500);}
      $counts[$itemStatus==='synced'?'synced':($itemStatus==='skipped'?'skipped':'failed')]++;
-     $insert->execute(array(':run'=>0,':warehouse'=>$warehouseId,':product'=>$productId,':variation'=>$variationId,':qty'=>$qty,':scale'=>$scale,':sqlite'=>self::formatQuantity(max(0,$qty),max(1,$scale)),':before'=>$before,':after'=>$after,':status'=>$itemStatus,':message'=>$itemMessage,':now'=>gmdate('Y-m-d H:i:s')));
+     $itemLogs[]=array('product_id'=>$productId,'variation_id'=>$variationId,'quantity_scaled'=>$qty,'quantity_scale'=>$scale,'sqlite_quantity'=>self::formatQuantity(max(0,$qty),max(1,$scale)),'woo_quantity_before'=>$before,'woo_quantity_after'=>$after,'status'=>$itemStatus,'message'=>$itemMessage,'created_at'=>gmdate('Y-m-d H:i:s'));
     }
     $last=end($pageRows);$hasMore=count($pageRows)===$limit;
     $nextCursor=$hasMore?array('product_id'=>(int)$last['product_id'],'variation_id'=>(int)$last['variation_id']):array('product_id'=>0,'variation_id'=>-1);
@@ -46,7 +46,7 @@ final class MDA_Stock_Sync_Service {
    }
   }
   $finished=gmdate('Y-m-d H:i:s');$db->prepare('INSERT INTO mda_stock_sync_runs (warehouse_id,started_at,finished_at,scanned_count,synced_count,skipped_count,failed_count,pending_events_count,next_product_id,next_variation_id,status,message,created_at) VALUES (:warehouse,:started,:finished,:scanned,:synced,:skipped,:failed,:pending,:product,:variation,:status,:message,:created)')->execute(array(':warehouse'=>$warehouseId,':started'=>$started,':finished'=>$finished,':scanned'=>$counts['scanned'],':synced'=>$counts['synced'],':skipped'=>$counts['skipped'],':failed'=>$counts['failed'],':pending'=>$pending,':product'=>(int)$cursor['product_id'],':variation'=>(int)$cursor['variation_id'],':status'=>$status,':message'=>$message,':created'=>$finished));$runId=(int)$db->lastInsertId();
-  if($pageRows){$db->prepare('UPDATE mda_stock_sync_items SET run_id=:run WHERE run_id=0 AND created_at>=:started')->execute(array(':run'=>$runId,':started'=>$started));}
+  if(!empty($itemLogs)){$insert=$db->prepare('INSERT INTO mda_stock_sync_items (run_id,warehouse_id,product_id,variation_id,quantity_scaled,quantity_scale,sqlite_quantity,woo_quantity_before,woo_quantity_after,status,message,created_at) VALUES (:run,:warehouse,:product,:variation,:qty,:scale,:sqlite,:before,:after,:status,:message,:now)');foreach($itemLogs as $item)$insert->execute(array(':run'=>$runId,':warehouse'=>$warehouseId,':product'=>$item['product_id'],':variation'=>$item['variation_id'],':qty'=>$item['quantity_scaled'],':scale'=>$item['quantity_scale'],':sqlite'=>$item['sqlite_quantity'],':before'=>$item['woo_quantity_before'],':after'=>$item['woo_quantity_after'],':status'=>$item['status'],':message'=>$item['message'],':now'=>$item['created_at']));}
   if($status==='partial'&&$pending===0&&!wp_next_scheduled('mda_woocommerce_stock_sync_continue'))wp_schedule_single_event(time()+30,'mda_woocommerce_stock_sync_continue',array($warehouseId));
   return array_merge($counts,array('run_id'=>$runId,'warehouse'=>$warehouseName,'status'=>$status,'message'=>$message,'pending_events'=>$pending));
  }
