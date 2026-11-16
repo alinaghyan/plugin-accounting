@@ -4,6 +4,8 @@ defined( 'ABSPATH' ) || exit;
 final class MDA_Admin {
  public static function init(): void {
   add_action('admin_menu',array(__CLASS__,'menu'));
+  add_action('admin_enqueue_scripts',array(__CLASS__,'enqueue_assets'));
+  add_filter('admin_body_class',array(__CLASS__,'body_class'));
   add_action('admin_post_mda_save_party',array(__CLASS__,'save_party'));
   add_action('admin_post_mda_archive_party',array(__CLASS__,'archive_party'));
   add_action('admin_post_mda_save_account',array(__CLASS__,'save_account'));
@@ -23,25 +25,56 @@ final class MDA_Admin {
   add_submenu_page('mda-accounting','دریافت از مشتری','دریافت از مشتری',MDA_Capabilities::MANAGE,'mda-sales-receipts',array(__CLASS__,'render_sales_receipts'));
  }
 
+ public static function body_class(string $classes): string {
+  $screen=function_exists('get_current_screen')?get_current_screen():null;
+  if($screen && (strpos((string)$screen->id,'mda-')!==false || strpos((string)$screen->id,'mda_accounting')!==false))$classes.=' mda-admin';
+  return $classes;
+ }
+ public static function enqueue_assets(string $hook): void {
+  $screen=function_exists('get_current_screen')?get_current_screen():null;
+  if(!$screen || (strpos((string)$screen->id,'mda-')===false && strpos((string)$screen->id,'mda_accounting')===false))return;
+  $base=MDA_PATH.'assets/';
+  wp_enqueue_style('mda-bootstrap-rtl',MDA_URL.'assets/vendor/bootstrap/bootstrap.rtl.min.css',array(),MDA_VERSION);
+  wp_enqueue_style('mda-admin',MDA_URL.'assets/css/admin.css',array('mda-bootstrap-rtl'),(string)filemtime($base.'css/admin.css'));
+  wp_enqueue_script('mda-bootstrap',MDA_URL.'assets/vendor/bootstrap/bootstrap.bundle.min.js',array(),MDA_VERSION,true);
+  wp_enqueue_script('mda-admin',MDA_URL.'assets/js/admin.js',array('mda-bootstrap'),(string)filemtime($base.'js/admin.js'),true);
+ }
  private static function guard(): void {
   if(!current_user_can(MDA_Capabilities::MANAGE)) wp_die(esc_html__('شما اجازه دسترسی به این بخش را ندارید.','malidev-accounting'));
  }
  public static function render(): void {
-  self::guard();$available=MDA_Database::is_available();$connected=false;$error='';$integrity='';
-  if($available){try{$pdo=MDA_Database::connection();$connected=true;$integrity=(string)$pdo->query('PRAGMA quick_check')->fetchColumn();}catch(Throwable $e){$error=$e->getMessage();}}
+  self::guard();$available=MDA_Database::is_available();$connected=false;$error='';$integrity='نامشخص';$stats=array('sales'=>0,'purchases'=>0,'parties'=>0,'events'=>0);
+  if($available){try{$pdo=MDA_Database::connection();$connected=true;$integrity=(string)$pdo->query('PRAGMA quick_check')->fetchColumn();
+   foreach(array('sales'=>'mda_sales_documents','purchases'=>'mda_purchase_documents','parties'=>'mda_parties','events'=>'mda_outbox_events') as $key=>$table){try{$stats[$key]=(int)$pdo->query('SELECT COUNT(*) FROM '.$table)->fetchColumn();}catch(Throwable $ignored){}}
+  }catch(Throwable $e){$error=$e->getMessage();}}
   ?>
-  <div class="wrap" dir="rtl"><h1>حسابداری MaliDev</h1><p>نسخه توسعه‌ای هسته حسابداری؛ ثبت خرید، اتصال فروش ووکامرس و فروش تلفنی از طریق صف SQLite فعال شده‌اند.</p>
-  <table class="widefat striped" style="max-width:900px"><tbody>
-  <tr><th>نسخه افزونه</th><td><?php echo esc_html(MDA_VERSION); ?></td></tr>
-  <tr><th>PDO_SQLite</th><td><?php echo $available?'فعال':'غیرفعال'; ?></td></tr>
-  <tr><th>اتصال دیتابیس</th><td><?php echo $connected?'برقرار':'برقرار نیست'; ?></td></tr>
-  <?php if($connected): ?><tr><th>سلامت SQLite</th><td><?php echo esc_html($integrity); ?></td></tr><?php endif; ?>
-  <?php if($error): ?><tr><th>خطا</th><td><?php echo esc_html($error); ?></td></tr><?php endif; ?>
-  </tbody></table>
-  <p>ثبت فروش پس از ورود سفارش به وضعیت در حال انجام یا تکمیل‌شده به‌صورت غیرهم‌زمان پردازش می‌شود؛ خطاهای صف باید از بخش فروش تلفنی / حضوری بررسی شوند.</p></div>
+  <div class="wrap" dir="rtl">
+   <div class="mda-hero"><span class="mda-chip" style="background:rgba(255,255,255,.18);color:#fff">MALIDEV ACCOUNTING · نسخه <?php echo esc_html(MDA_VERSION); ?></span><h2 style="margin-top:15px">مدیریت مالی فروشگاه، یکپارچه و هوشمند</h2><p>نمایی شفاف از خرید، فروش، موجودی و گردش مالی کسب‌وکار شما.</p></div>
+   <div class="mda-grid">
+    <div class="mda-card mda-stat"><span class="mda-stat-icon">🧾</span><div><small>اسناد فروش</small><strong><?php echo esc_html(number_format_i18n($stats['sales'])); ?></strong></div></div>
+    <div class="mda-card mda-stat"><span class="mda-stat-icon">📦</span><div><small>فاکتورهای خرید</small><strong><?php echo esc_html(number_format_i18n($stats['purchases'])); ?></strong></div></div>
+    <div class="mda-card mda-stat"><span class="mda-stat-icon">👥</span><div><small>طرف‌حساب‌ها</small><strong><?php echo esc_html(number_format_i18n($stats['parties'])); ?></strong></div></div>
+    <div class="mda-card mda-stat"><span class="mda-stat-icon">🔄</span><div><small>رویدادهای صف فروش</small><strong><?php echo esc_html(number_format_i18n($stats['events'])); ?></strong></div></div>
+   </div>
+   <h2 class="mda-section-title">دسترسی سریع</h2>
+   <div class="mda-grid">
+    <div class="mda-card"><h3>🛒 خرید و انبار</h3><p>ثبت فاکتور خرید، قطعی‌سازی، پرداخت و مرجوعی خرید.</p><p style="margin-top:15px"><a class="button button-primary" href="<?php echo esc_url(admin_url('admin.php?page=mda-purchases')); ?>">مدیریت خرید</a></p></div>
+    <div class="mda-card"><h3>💳 دریافت از مشتری</h3><p>ثبت دریافت‌های مرحله‌ای و مشاهده مانده فاکتورهای فروش.</p><p style="margin-top:15px"><a class="button button-primary" href="<?php echo esc_url(admin_url('admin.php?page=mda-sales-receipts')); ?>">مشاهده دریافت‌ها</a></p></div>
+    <div class="mda-card"><h3>👤 طرف‌حساب‌ها</h3><p>مدیریت مشتریان و تأمین‌کنندگان و اطلاعات تفصیلی.</p><p style="margin-top:15px"><a class="button" href="<?php echo esc_url(admin_url('admin.php?page=mda-parties')); ?>">مدیریت اشخاص</a></p></div>
+    <div class="mda-card"><h3>📊 گردش حساب اشخاص</h3><p>بررسی مانده و گردش بدهکار و بستانکار طرف‌حساب‌ها.</p><p style="margin-top:15px"><a class="button" href="<?php echo esc_url(admin_url('admin.php?page=mda-party-ledger')); ?>">گزارش گردش</a></p></div>
+   </div>
+   <h2 class="mda-section-title">وضعیت سامانه</h2>
+   <div class="mda-card"><div class="mda-grid">
+    <div><span class="mda-muted">نسخه افزونه</span><p><strong><?php echo esc_html(MDA_VERSION); ?></strong></p></div>
+    <div><span class="mda-muted">PDO_SQLite</span><p><strong><?php echo $available?'فعال':'غیرفعال'; ?></strong></p></div>
+    <div><span class="mda-muted">اتصال دیتابیس</span><p><strong><?php echo $connected?'برقرار':'برقرار نیست'; ?></strong></p></div>
+    <div><span class="mda-muted">سلامت SQLite</span><p><strong><?php echo esc_html($integrity); ?></strong></p></div>
+   </div><?php if($error): ?><div class="notice notice-error"><p><?php echo esc_html($error); ?></p></div><?php endif; ?></div>
+   <p class="mda-muted" style="margin-top:18px">پردازش سفارش‌های ووکامرس از طریق صف SQLite انجام می‌شود. رویدادهای ناموفق و تطبیق سفارش‌ها باید در بخش فروش پیگیری شوند.</p>
+  </div>
   <?php
  }
-
+ 
  public static function save_party(): void {
   self::guard();check_admin_referer('mda_save_party');
   try{$id=!empty($_POST['party_id'])?absint($_POST['party_id']):null;MDA_Party_Service::save(wp_unslash($_POST),$id);$url=add_query_arg('mda_notice','party_saved',admin_url('admin.php?page=mda-parties'));}
