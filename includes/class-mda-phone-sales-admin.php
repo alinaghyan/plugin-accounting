@@ -66,9 +66,9 @@ final class MDA_Phone_Sales_Admin {
    $db=MDA_Database::connection();$q=$db->prepare('SELECT payload_hash,order_id,status FROM mda_phone_sale_requests WHERE request_key=:key');$q->execute(array(':key'=>$key));$existing=$q->fetch();
    if($existing){
     if(!hash_equals((string)$existing['payload_hash'],$hash))throw new RuntimeException('این کلید درخواست قبلاً برای اطلاعات دیگری استفاده شده است.');
-    if((int)$existing['order_id']>0){wp_safe_redirect(admin_url('post.php?post='.(int)$existing['order_id'].'&action=edit'));exit;}
+    if((int)$existing['order_id']>0){wp_safe_redirect(admin_url('admin.php?page=wc-orders&action=edit&id='.(int)$existing['order_id']));exit;}
     $found=wc_get_orders(array('limit'=>1,'return'=>'ids','meta_query'=>array(array('key'=>'_mda_phone_request_key','value'=>$key))));
-    if($found){$orderId=(int)$found[0];$db->prepare("UPDATE mda_phone_sale_requests SET order_id=:id,status='created',updated_at=:now WHERE request_key=:key")->execute(array(':id'=>$orderId,':now'=>gmdate('Y-m-d H:i:s'),':key'=>$key));wp_safe_redirect(admin_url('post.php?post='.$orderId.'&action=edit'));exit;}
+    if($found){$orderId=(int)$found[0];$db->prepare("UPDATE mda_phone_sale_requests SET order_id=:id,status='created',updated_at=:now WHERE request_key=:key")->execute(array(':id'=>$orderId,':now'=>gmdate('Y-m-d H:i:s'),':key'=>$key));wp_safe_redirect(admin_url('admin.php?page=wc-orders&action=edit&id='.$orderId));exit;}
     if($existing['status']==='creating')throw new RuntimeException('درخواست هم‌زمان در حال ایجاد سفارش است؛ چند لحظه بعد دوباره بررسی کنید.');
     $db->prepare("UPDATE mda_phone_sale_requests SET status='creating',last_error=NULL,updated_at=:now WHERE request_key=:key")->execute(array(':now'=>gmdate('Y-m-d H:i:s'),':key'=>$key));
    }else{
@@ -81,7 +81,7 @@ final class MDA_Phone_Sales_Admin {
    foreach($lines as $line)$order->add_product($line['product'],$line['qty'],array('subtotal'=>$line['total'],'total'=>$line['total']));
    $order->calculate_totals(false);$order->save();$orderId=(int)$order->get_id();
    $db->prepare("UPDATE mda_phone_sale_requests SET order_id=:id,status='created',updated_at=:now WHERE request_key=:key")->execute(array(':id'=>$orderId,':now'=>gmdate('Y-m-d H:i:s'),':key'=>$key));
-   update_post_meta($orderId,'_mda_phone_request_key',$key);
+   
    $order->update_status('processing','ثبت فروش تلفنی/حضوری از MaliDev Accounting');
    wp_safe_redirect(admin_url('post.php?post='.$orderId.'&action=edit'));exit;
   }catch(Throwable $e){
