@@ -230,21 +230,40 @@
 	} );
 
 	/* ---- price-replacement message (per row) ---- */
+	const MSG = G.messages || { phone: '', presets: {} };
+	const preset = ( id ) => MSG.presets[ id ] || {};
+	// Placeholders show what the storefront will print when an override is left empty.
+	function msgPlaceholders( $box ) {
+		const p = preset( $box.find( '[name=msg_preset]' ).val() );
+		$box.find( '[name=msg_title]' ).attr( 'placeholder', p.title || 'عنوان پیام' );
+		$box.find( '[name=msg_note]' ).attr( 'placeholder', p.note || 'اختیاری' );
+		$box.find( '[name=msg_phone]' ).attr( 'placeholder', p.phone || MSG.phone || '021-12345678' );
+	}
+	function msgRead( $box ) {
+		return { enabled: '1', preset: $box.find( '[name=msg_preset]' ).val() || '', title: $box.find( '[name=msg_title]' ).val(), note: $box.find( '[name=msg_note]' ).val(), phone: $box.find( '[name=msg_phone]' ).val() };
+	}
+	const msgLabel = ( v ) => v.title || preset( v.preset ).title || 'پیام';
+	$( document ).on( 'change', '[name=msg_preset]', function () { msgPlaceholders( $( this ).closest( '.mdg-msg-fields' ) ); } );
+	msgPlaceholders( $( '#mdg-bulk .mdg-msg-fields' ) );
 	const $mp = $( '#mdg-msg-pop' );
 	$grid.on( 'click', '.mdg-msg-btn', function () {
-		const $b = $( this ), msg = JSON.parse( $b.attr( 'data-msg' ) || '{}' );
+		const $b = $( this ), msg = JSON.parse( $b.attr( 'data-msg' ) || '{}' ), has = !! ( msg.title || msg.preset );
 		closePops();
-		$mp.html( '<div class="mdg-msg-head"><span class="dashicons dashicons-warning"></span><div><b>ویرایش وضعیت غیرفعال‌سازی</b><small>پیام به جای قیمت در فروشگاه</small></div></div><div class="mdg-msg-fields">' + $( '#mdg-bulk .mdg-msg-fields' ).html() + '</div><div class="mdg-tp__foot"><button type="button" class="mdg-btn" data-m="cancel">انصراف</button>' + ( msg.title ? '<button type="button" class="mdg-btn mdg-btn--ok" data-m="off">فعال کردن فروش</button>' : '' ) + '<button type="button" class="mdg-btn mdg-btn--warn" data-m="save">ذخیره پیام</button></div>' ).prop( 'hidden', false ).addClass( 'is-open' );
-		$mp.find( '[name=msg_title]' ).val( msg.title || 'در حال تأمین' );
-		$mp.find( '[name=msg_note]' ).val( msg.note || '' ).trigger( 'input' );
-		$mp.find( '[name=msg_phone]' ).val( msg.phone || '' );
+		$mp.html( '<div class="mdg-msg-head"><span class="dashicons dashicons-warning"></span><div><b>پیام جایگزین قیمت</b><small>به جای قیمت و دکمه خرید در فروشگاه</small></div></div><div class="mdg-msg-fields">' + $( '#mdg-bulk .mdg-msg-fields' ).html() + '</div><div class="mdg-tp__foot"><button type="button" class="mdg-btn" data-m="cancel">انصراف</button>' + ( has ? '<button type="button" class="mdg-btn mdg-btn--ok" data-m="off">حذف پیام و فعال کردن فروش</button>' : '' ) + '<button type="button" class="mdg-btn mdg-btn--warn" data-m="save">ذخیره پیام</button></div>' ).prop( 'hidden', false ).addClass( 'is-open' );
+		const $f = $mp.find( '.mdg-msg-fields' );
+		$f.find( '[name=msg_preset]' ).val( has ? ( msg.preset || '' ) : ( Object.keys( MSG.presets )[ 0 ] || '' ) );
+		$f.find( '[name=msg_title]' ).val( msg.title || '' );
+		$f.find( '[name=msg_note]' ).val( msg.note || '' ).trigger( 'input' );
+		$f.find( '[name=msg_phone]' ).val( msg.phone || '' );
+		msgPlaceholders( $f );
 		place( $mp, this );
 		$mp.off( 'click' ).on( 'click', '[data-m]', function () {
 			const a = $( this ).data( 'm' );
 			if ( a !== 'cancel' ) {
-				const value = a === 'off' ? { enabled: '' } : { enabled: '1', title: $mp.find( '[name=msg_title]' ).val(), note: $mp.find( '[name=msg_note]' ).val(), phone: $mp.find( '[name=msg_phone]' ).val() };
+				const value = a === 'off' ? { enabled: '' } : msgRead( $f );
+				if ( a === 'save' && ! value.preset && ! value.title.trim() ) { toast( 'یک پیام انتخاب کنید یا عنوان اختصاصی بنویسید.', false ); return; }
 				setPending( rowId( $b ), 'message', value, true );
-				$b.addClass( 'is-dirty' ).toggleClass( 'mdg-badge--pink', a !== 'off' ).toggleClass( 'mdg-badge--ghost', a === 'off' ).text( a === 'off' ? '+ پیام' : value.title );
+				$b.attr( 'data-msg', JSON.stringify( a === 'off' ? {} : value ) ).addClass( 'is-dirty' ).toggleClass( 'mdg-badge--pink', a !== 'off' ).toggleClass( 'mdg-badge--ghost', a === 'off' ).text( a === 'off' ? '+ پیام' : msgLabel( value ) );
 			}
 			closePops();
 		} );
@@ -358,7 +377,7 @@
 		if ( $m.find( '[name=schedule_clear]' ).is( ':checked' ) ) s.schedule_clear = 1;
 		else if ( bulk.from || bulk.to ) { s.sale_from = bulk.from; s.sale_to = bulk.to; }
 		const mm = seg( 'message_mode' );
-		if ( mm ) s.message = { mode: mm, title: $m.find( '[name=msg_title]' ).val(), note: $m.find( '[name=msg_note]' ).val(), phone: $m.find( '[name=msg_phone]' ).val() };
+		if ( mm ) s.message = Object.assign( msgRead( $m.find( '.mdg-msg-fields' ) ), { mode: mm } );
 		return s;
 	}
 	function computePrice( $tr, p ) {

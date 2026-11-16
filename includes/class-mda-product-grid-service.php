@@ -149,21 +149,36 @@ final class MDA_Product_Grid_Service {
 		if ( empty( $raw['enabled'] ) ) {
 			return array();
 		}
-		$title = mb_substr( sanitize_text_field( (string) ( $raw['title'] ?? '' ) ), 0, 40 );
-		if ( '' === $title ) {
+		$presets = class_exists( 'MDA_Price_Message' ) ? MDA_Price_Message::settings()['presets'] : array();
+		$preset  = sanitize_key( (string) ( $raw['preset'] ?? '' ) );
+		$preset  = isset( $presets[ $preset ] ) ? $preset : '';
+		$title   = mb_substr( sanitize_text_field( (string) ( $raw['title'] ?? '' ) ), 0, 40 );
+		if ( '' === $title && '' === $preset ) {
 			return array();
 		}
 		return array(
-			'title' => $title,
-			'note'  => mb_substr( sanitize_text_field( (string) ( $raw['note'] ?? '' ) ), 0, 40 ),
-			'phone' => mb_substr( preg_replace( '/[^0-9+\-\s]/', '', MDA_Jalali::latin_digits( (string) ( $raw['phone'] ?? '' ) ) ), 0, 20 ),
+			'preset' => $preset,
+			'label'  => '' !== $preset ? (string) $presets[ $preset ]['title'] : '', // Snapshot if the preset is deleted later.
+			'title'  => $title,
+			'note'   => mb_substr( sanitize_text_field( (string) ( $raw['note'] ?? '' ) ), 0, 40 ),
+			'phone'  => mb_substr( trim( (string) preg_replace( '/[^0-9+\-\s]/', '', MDA_Jalali::latin_digits( (string) ( $raw['phone'] ?? '' ) ) ) ), 0, 20 ),
 		);
 	}
 
-	public static function message( WC_Product $product ): array {
+	/** What is stored on the product (preset id + per-product overrides). */
+	public static function stored_message( WC_Product $product ): array {
 		$source = $product->is_type( 'variation' ) ? wc_get_product( $product->get_parent_id() ) : $product;
 		$msg    = $source ? $source->get_meta( self::META_MESSAGE, true ) : '';
-		return is_array( $msg ) && ! empty( $msg['title'] ) ? $msg : array();
+		return is_array( $msg ) && ( ! empty( $msg['title'] ) || ! empty( $msg['preset'] ) ) ? $msg : array();
+	}
+
+	/** Final texts shown on the storefront (preset + overrides + default phone). */
+	public static function message( WC_Product $product ): array {
+		$stored = self::stored_message( $product );
+		if ( ! $stored ) {
+			return array();
+		}
+		return class_exists( 'MDA_Price_Message' ) ? MDA_Price_Message::resolve( $stored ) : ( '' !== (string) ( $stored['title'] ?? '' ) ? $stored : array() );
 	}
 
 	/** Stock of products that have an accounting cost state is owned by the stock ledger. */

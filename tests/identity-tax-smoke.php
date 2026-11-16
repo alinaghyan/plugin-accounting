@@ -11,6 +11,7 @@ defined( 'MINUTE_IN_SECONDS' ) || define( 'MINUTE_IN_SECONDS', 60 );
 require_once dirname( __DIR__ ) . '/includes/class-mda-jalali.php';
 require_once dirname( __DIR__ ) . '/includes/class-mda-price-service.php';
 require_once dirname( __DIR__ ) . '/includes/class-mda-product-grid-service.php';
+require_once dirname( __DIR__ ) . '/includes/class-mda-price-message.php';
 require_once dirname( __DIR__ ) . '/includes/identity/class-mda-shahkar.php';
 require_once dirname( __DIR__ ) . '/includes/identity/class-mda-moodian.php';
 
@@ -49,5 +50,23 @@ mda_assert( array() === MDA_Product_Grid_Service::clean_message( array( 'enabled
 mda_assert( array() === MDA_Product_Grid_Service::clean_message( array( 'enabled' => '1', 'title' => '' ) ), 'empty title removed' );
 $m = MDA_Product_Grid_Service::clean_message( array( 'enabled' => '1', 'title' => '<b>در حال تأمین</b>', 'note' => str_repeat( 'ا', 60 ), 'phone' => '۰۲۱-۱۲۳۴<script>' ) );
 mda_assert( 'در حال تأمین' === $m['title'] && 40 === mb_strlen( $m['note'] ) && '021-1234' === $m['phone'], 'message sanitised and capped' );
+
+// Store-specific message templates (nothing hard-coded per shop).
+$saved = MDA_Price_Message::clean_settings( array( 'phone' => '۰۲۱-۸۸۸۸', 'presets' => array(
+	array( 'id' => 'supply', 'title' => 'در حال تأمین', 'note' => '', 'phone' => '' ),
+	array( 'id' => 'clear', 'title' => 'در حال ترخیص', 'note' => 'گمرک', 'phone' => '0912 000 0000' ),
+	array( 'id' => 'x', 'title' => '', 'note' => 'deleted row' ),
+) ) );
+mda_assert( 2 === count( $saved['presets'] ) && '021-8888' === $saved['phone'], 'empty title deletes row, phone cleaned' );
+update_option( MDA_Price_Message::OPTION, $saved );
+$r = MDA_Price_Message::resolve( MDA_Product_Grid_Service::clean_message( array( 'enabled' => 1, 'preset' => 'supply' ) ) );
+mda_assert( 'در حال تأمین' === $r['title'] && '021-8888' === $r['phone'], 'preset text + default phone' );
+$r = MDA_Price_Message::resolve( MDA_Product_Grid_Service::clean_message( array( 'enabled' => 1, 'preset' => 'clear', 'note' => 'ویژه' ) ) );
+mda_assert( 'در حال ترخیص' === $r['title'] && 'ویژه' === $r['note'] && '0912 000 0000' === $r['phone'], 'per-product override + preset phone' );
+$stored = MDA_Product_Grid_Service::clean_message( array( 'enabled' => 1, 'preset' => 'clear' ) );
+update_option( MDA_Price_Message::OPTION, array( 'phone' => '', 'presets' => array( 'clear' => array( 'title' => 'ترخیص تا ۱۰ روز', 'note' => '', 'phone' => '' ) ) ) );
+mda_assert( 'ترخیص تا ۱۰ روز' === MDA_Price_Message::resolve( $stored )['title'], 'editing the preset updates every product using it' );
+update_option( MDA_Price_Message::OPTION, array( 'phone' => '', 'presets' => array() ) );
+mda_assert( 'در حال ترخیص' === MDA_Price_Message::resolve( $stored )['title'], 'deleted preset keeps last text (product stays blocked)' );
 
 echo "identity-tax-smoke: OK\n";

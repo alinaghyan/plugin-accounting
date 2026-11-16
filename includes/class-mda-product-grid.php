@@ -62,6 +62,8 @@ final class MDA_Product_Grid {
 				'fields'   => MDA_Price_Service::fields(),
 				'currency' => MDA_Settings::currency_label(),
 				'canTerms' => current_user_can( 'manage_product_terms' ),
+				'messages' => MDA_Price_Message::settings(),
+				'msgUrl'   => admin_url( 'admin.php?page=mda-settings#mda-price-messages' ),
 			)
 		);
 	}
@@ -292,6 +294,7 @@ final class MDA_Product_Grid {
 		$fields  = MDA_Price_Service::fields();
 		$managed = MDA_Product_Grid_Service::accounting_managed( $p );
 		$msg     = MDA_Product_Grid_Service::message( $p );
+		$stored  = MDA_Product_Grid_Service::stored_message( $p );
 		$edit    = get_edit_post_link( $is_var ? $p->get_parent_id() : $id, 'raw' ) ?: '#';
 		$cls     = array( 'mdg-row' );
 		if ( $is_var ) {
@@ -344,7 +347,7 @@ final class MDA_Product_Grid {
 		$active = 'publish' === $p->get_status();
 		$o     .= '<td class="mdg-c-status"><button type="button" class="mdg-badge mdg-toggle-status ' . ( $active ? 'mdg-badge--ok' : 'mdg-badge--warn' ) . '" data-f="status" data-v="' . ( $active ? 'publish' : ( $is_var ? 'private' : 'draft' ) ) . '">' . ( $active ? 'فعال' : 'غیرفعال' ) . '</button>';
 		if ( ! $is_var ) {
-			$o .= '<button type="button" class="mdg-badge mdg-msg-btn' . ( $msg ? ' mdg-badge--pink' : ' mdg-badge--ghost' ) . '" data-msg="' . esc_attr( wp_json_encode( $msg ?: new stdClass() ) ) . '" title="پیام جایگزین قیمت">' . ( $msg ? esc_html( $msg['title'] ) : '+ پیام' ) . '</button>';
+			$o .= '<button type="button" class="mdg-badge mdg-msg-btn' . ( $msg ? ' mdg-badge--pink' : ' mdg-badge--ghost' ) . '" data-msg="' . esc_attr( wp_json_encode( $stored ?: new stdClass() ) ) . '" title="پیام جایگزین قیمت">' . ( $msg ? esc_html( $msg['title'] ) : '+ پیام' ) . '</button>';
 		}
 		$o .= '</td>';
 
@@ -467,7 +470,16 @@ final class MDA_Product_Grid {
 	}
 
 	public static function message_fields_html(): string {
-		return '<label>پیام جایگزین قیمت<input name="msg_title" maxlength="40" placeholder="مثلاً: در حال تأمین"></label><label>توضیح اختیاری (زیر عنوان) <small class="mdg-count">0/40</small><input name="msg_note" maxlength="40" placeholder="مثلاً: در حال ترخیص"></label><label>شماره تلفن (اختیاری)<input name="msg_phone" dir="ltr" maxlength="20" placeholder="021-12345678"></label><p class="mdg-hint"><b>راهنما:</b> این پیام در فروشگاه دقیقاً <b>به جای قیمت</b> نمایش داده می‌شود؛ دکمه خرید، موجودی و فیلد تعداد هم خودکار حذف می‌شوند.</p>';
+		$s    = MDA_Price_Message::settings();
+		$opts = '';
+		foreach ( $s['presets'] as $id => $p ) {
+			$opts .= '<option value="' . esc_attr( $id ) . '">' . esc_html( $p['title'] ) . '</option>';
+		}
+		return '<label>پیام<select name="msg_preset">' . $opts . '<option value="">— متن اختصاصی —</option></select></label>'
+			. '<label>عنوان اختصاصی <small class="mdg-dim">(خالی = متن پیام انتخابی)</small><input name="msg_title" maxlength="40"></label>'
+			. '<label>توضیح زیر عنوان <small class="mdg-count">0/40</small><input name="msg_note" maxlength="40"></label>'
+			. '<label>شماره تماس <small class="mdg-dim">(خالی = شماره تنظیمات)</small><input name="msg_phone" dir="ltr" maxlength="20"></label>'
+			. '<p class="hint mdg-hint">متن‌ها و شماره پیش‌فرض در <a href="' . esc_url( admin_url( 'admin.php?page=mda-settings#mda-price-messages' ) ) . '" target="_blank">تنظیمات و ابزار ← پیام‌های جایگزین قیمت</a> قابل ویرایش است. این پیام در فروشگاه <b>به جای قیمت</b> نمایش داده می‌شود و دکمه خرید حذف می‌شود.</p>';
 	}
 
 	private static function render_import_modal(): void {
@@ -479,6 +491,7 @@ final class MDA_Product_Grid {
 	private static function render_settings_modal(): void {
 		echo '<div class="mdg-modal" id="mdg-columns" hidden><div class="mdg-modal__box"><div class="mdg-modal__head"><span class="mdg-modal__icon dashicons dashicons-admin-settings"></span><div><h2>تنظیمات جدول</h2><p>ستون‌های قابل نمایش و سطوح قیمت.</p></div><button type="button" class="mdg-x" data-mdg-close>×</button></div><div class="mdg-modal__body"><h3>ستون‌ها</h3><div class="mdg-col-toggles"></div>';
 		ob_start();
+		MDA_Price_Message::render_settings_card();
 		MDA_Price_Admin::render_levels_form();
 		echo ob_get_clean(); // phpcs:ignore WordPress.Security.EscapeOutput -- escaped inside.
 		echo '</div></div></div>';
