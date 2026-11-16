@@ -8,7 +8,7 @@ final class MDA_Sales_Service {
   $currency=strtoupper((string)($payload['currency']??''));
   $key=trim((string)($payload['idempotency_key']??''));
   $date=(string)($payload['date']??'');
-  if($orderId<1||!preg_match('/^[A-Z]{3}$/',$currency)||strlen($key)<12||!preg_match('/^\d{4}-\d{2}-\d{2}$/',$date)) throw new InvalidArgumentException('سربرگ رویداد فروش یا کد واحد پول معتبر نیست.');
+  if($orderId<1||!in_array($currency,array('IRR','IRT'),true)||strlen($key)<12||!preg_match('/^\d{4}-\d{2}-\d{2}$/',$date)) throw new InvalidArgumentException('سربرگ رویداد فروش یا کد واحد پول معتبر نیست.');
   $items=$payload['items']??array();
   if(!is_array($items)||!count($items)||count($items)>500) throw new InvalidArgumentException('سفارش باید حداقل یک ردیف کالای معتبر داشته باشد.');
   $hash=hash('sha256',wp_json_encode($payload));
