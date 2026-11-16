@@ -27,6 +27,7 @@ require_once MDA_PATH . 'includes/class-mda-purchase-service.php';
 require_once MDA_PATH . 'includes/class-mda-purchase-settlement-service.php';
 require_once MDA_PATH . 'includes/class-mda-purchase-return-service.php';
 require_once MDA_PATH . 'includes/class-mda-sales-service.php';
+require_once MDA_PATH . 'includes/class-mda-sales-receipt-service.php';
 require_once MDA_PATH . 'includes/class-mda-outbox-service.php';
 require_once MDA_PATH . 'includes/class-mda-woocommerce.php';
 require_once MDA_PATH . 'includes/class-mda-phone-sales-admin.php';
