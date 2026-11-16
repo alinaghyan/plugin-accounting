@@ -4,7 +4,7 @@ defined( 'ABSPATH' ) || exit;
 /** Append-only customer receipts; posting a sale never implies payment collection. */
 final class MDA_Sales_Receipt_Service {
  public static function record(int $saleId,int $amount,int $cashAccountId,string $method,string $key,?string $date=null):array {
-  if($saleId<1||$amount<1||$cashAccountId<1||!in_array($method,array('cash','bank','pos','transfer','gateway'),true)||strlen($key)<8||strlen($key)>191)throw new InvalidArgumentException('اطلاعات دریافت از مشتری معتبر نیست.');
+  if($saleId<1||$amount<1||$cashAccountId<1||!in_array($method,array('cash','bank','pos','transfer'),true)||strlen($key)<8||strlen($key)>191)throw new InvalidArgumentException('اطلاعات دریافت از مشتری معتبر نیست.');
   $date=$date?:current_time('Y-m-d');$parsed=DateTimeImmutable::createFromFormat('!Y-m-d',$date);if(!$parsed||$parsed->format('Y-m-d')!==$date)throw new InvalidArgumentException('تاریخ دریافت معتبر نیست.');
   $hash=hash('sha256',wp_json_encode(array($saleId,$amount,$cashAccountId,$method,$date)));$now=gmdate('Y-m-d H:i:s');
   return MDA_Database::transaction(static function(PDO $db)use($saleId,$amount,$cashAccountId,$method,$key,$date,$hash,$now):array {
