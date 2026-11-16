@@ -44,7 +44,7 @@ final class MDA_Phone_Sales_Admin {
   <?php if(!empty($_GET['retry'])): ?><div class="notice notice-success"><p>درخواست تلاش مجدد به صف اضافه شد.</p></div><?php endif; ?>
   <?php if($failedEvents): ?><h2>رویدادهای ناموفق صف همگام‌سازی</h2><table class="widefat striped"><thead><tr><th>شناسه</th><th>نوع</th><th>سفارش</th><th>تلاش‌ها</th><th>آخرین خطا</th><th>عملیات</th></tr></thead><tbody><?php foreach($failedEvents as $event): ?><tr><td><?php echo (int)$event['id']; ?></td><td><?php echo esc_html($event['event_type']); ?></td><td><?php echo esc_html($event['aggregate_id']); ?></td><td><?php echo (int)$event['attempts']; ?></td><td><?php echo esc_html($event['last_error']); ?></td><td><form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>"><input type="hidden" name="action" value="mda_retry_outbox_event"><input type="hidden" name="event_id" value="<?php echo (int)$event['id']; ?>"><?php wp_nonce_field('mda_retry_outbox_'.(int)$event['id']); ?><button class="button">تلاش مجدد</button></form></td></tr><?php endforeach; ?></tbody></table><?php endif; ?>
   <h2>آخرین فروش‌های ثبت‌شده در حسابداری</h2>
-  <table class="widefat striped"><thead><tr><th>سند</th><th>کانال</th><th>شماره سفارش</th><th>تاریخ</th><th>فروش (ریال)</th><th>COGS (ریال)</th></tr></thead><tbody>
+  <table class="widefat striped"><thead><tr><th>سند</th><th>کانال</th><th>شماره سفارش</th><th>تاریخ</th><th>فروش (واحد پول فروشگاه)</th><th>COGS (واحد پول فروشگاه)</th></tr></thead><tbody>
   <?php foreach($recent as $r): ?><tr><td><?php echo esc_html($r['document_number']); ?></td><td><?php echo $r['source_type']==='phone'?'تلفنی':($r['source_type']==='in_person'?'حضوری':'وب‌سایت'); ?></td><td><a href="<?php echo esc_url(admin_url('admin.php?page=wc-orders&action=edit&id='.(int)$r['order_id'])); ?>">#<?php echo (int)$r['order_id']; ?></a></td><td><?php echo esc_html($r['document_date']); ?></td><td><?php echo esc_html(number_format((int)$r['total_minor'])); ?></td><td><?php echo esc_html(number_format((int)$r['cogs_total_minor'])); ?></td></tr><?php endforeach; ?>
   <?php if(!$recent): ?><tr><td colspan="6">هنوز فروش حسابداری ثبت نشده است.</td></tr><?php endif; ?>
   </tbody></table></div>
@@ -73,9 +73,9 @@ final class MDA_Phone_Sales_Admin {
    $db=MDA_Database::connection();$q=$db->prepare('SELECT payload_hash,order_id,status FROM mda_phone_sale_requests WHERE request_key=:key');$q->execute(array(':key'=>$key));$existing=$q->fetch();
    if($existing){
     if(!hash_equals((string)$existing['payload_hash'],$hash))throw new RuntimeException('این کلید درخواست قبلاً برای اطلاعات دیگری استفاده شده است.');
-    if((int)$existing['order_id']>0){wp_safe_redirect(admin_url('admin.php?page=wc-orders&action=edit&id='.(int)$existing['order_id']));exit;}
+    if((int)$existing['order_id']>0){wp_safe_redirect(get_edit_post_link((int)$existing['order_id'])?:admin_url('admin.php?page=wc-orders&action=edit&id='.(int)$existing['order_id']));exit;}
     $found=wc_get_orders(array('limit'=>1,'return'=>'ids','meta_query'=>array(array('key'=>'_mda_phone_request_key','value'=>$key))));
-    if($found){$orderId=(int)$found[0];$db->prepare("UPDATE mda_phone_sale_requests SET order_id=:id,status='created',updated_at=:now WHERE request_key=:key")->execute(array(':id'=>$orderId,':now'=>gmdate('Y-m-d H:i:s'),':key'=>$key));wp_safe_redirect(admin_url('admin.php?page=wc-orders&action=edit&id='.$orderId));exit;}
+    if($found){$orderId=(int)$found[0];$db->prepare("UPDATE mda_phone_sale_requests SET order_id=:id,status='created',updated_at=:now WHERE request_key=:key")->execute(array(':id'=>$orderId,':now'=>gmdate('Y-m-d H:i:s'),':key'=>$key));wp_safe_redirect(get_edit_post_link($orderId)?:admin_url('admin.php?page=wc-orders&action=edit&id='.$orderId));exit;}
     if($existing['status']==='creating')throw new RuntimeException('درخواست هم‌زمان در حال ایجاد سفارش است؛ چند لحظه بعد دوباره بررسی کنید.');
     $db->prepare("UPDATE mda_phone_sale_requests SET status='creating',last_error=NULL,updated_at=:now WHERE request_key=:key")->execute(array(':now'=>gmdate('Y-m-d H:i:s'),':key'=>$key));
    }else{
