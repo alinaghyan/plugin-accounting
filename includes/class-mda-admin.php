@@ -11,6 +11,7 @@ final class MDA_Admin {
   add_action('admin_post_mda_post_purchase',array(__CLASS__,'post_purchase'));
   add_action('admin_post_mda_record_purchase_payment',array(__CLASS__,'record_purchase_payment'));
   add_action('admin_post_mda_post_purchase_return',array(__CLASS__,'post_purchase_return'));
+  add_action('admin_post_mda_record_sales_receipt',array(__CLASS__,'record_sales_receipt'));
  }
 
  public static function menu(): void {
@@ -19,6 +20,7 @@ final class MDA_Admin {
   add_submenu_page('mda-accounting','کدینگ حساب‌ها','کدینگ حساب‌ها',MDA_Capabilities::MANAGE,'mda-accounts',array(__CLASS__,'render_accounts'));
   add_submenu_page('mda-accounting','گردش حساب اشخاص','گردش حساب اشخاص',MDA_Capabilities::MANAGE,'mda-party-ledger',array(__CLASS__,'render_party_ledger'));
   add_submenu_page('mda-accounting','خرید و فاکتور خرید','خرید و انبار',MDA_Capabilities::MANAGE,'mda-purchases',array(__CLASS__,'render_purchases'));
+  add_submenu_page('mda-accounting','دریافت از مشتری','دریافت از مشتری',MDA_Capabilities::MANAGE,'mda-sales-receipts',array(__CLASS__,'render_sales_receipts'));
  }
 
  private static function guard(): void {
@@ -195,6 +197,35 @@ final class MDA_Admin {
   <?php
  }
 
+ public static function record_sales_receipt(): void {
+  self::guard();$id=absint($_POST['sale_id']??0);check_admin_referer('mda_record_sales_receipt_'.$id);
+  try{$amount=filter_var((string)($_POST['amount_minor']??''),FILTER_VALIDATE_INT);if(false===$amount||$amount<1)throw new InvalidArgumentException('مبلغ دریافت باید عدد صحیح مثبت باشد.');
+   $date=sanitize_text_field(wp_unslash($_POST['payment_date']??''));$method=sanitize_key(wp_unslash($_POST['payment_method']??'cash'));
+   $result=MDA_Sales_Receipt_Service::record($id,(int)$amount,absint($_POST['cash_account_id']??0),$method,'sales-receipt-'.wp_generate_uuid4(),$date);
+   $url=add_query_arg(array('page'=>'mda-sales-receipts','sale_id'=>$id,'mda_notice'=>$result['duplicate']?'sales_receipt_duplicate':'sales_receipt_recorded'),admin_url('admin.php'));
+  }catch(Throwable $e){$url=add_query_arg(array('page'=>'mda-sales-receipts','sale_id'=>$id,'mda_error'=>rawurlencode($e->getMessage())),admin_url('admin.php'));}
+  wp_safe_redirect($url);exit;
+ }
+ public static function render_sales_receipts(): void {
+  self::guard();if(!MDA_Database::is_available()){echo '<div class="wrap"><div class="notice notice-error"><p>PDO_SQLite فعال نیست.</p></div></div>';return;}
+  $db=MDA_Database::connection();$rows=MDA_Sales_Receipt_Service::all(200);$saleId=absint($_GET['sale_id']??0);$sale=null;$summary=null;$receipts=array();
+  if($saleId){$q=$db->prepare('SELECT s.*,p.display_name,p.phone FROM mda_sales_documents s JOIN mda_parties p ON p.id=s.party_id WHERE s.id=:id');$q->execute(array(':id'=>$saleId));$sale=$q->fetch();if($sale){$summary=MDA_Sales_Receipt_Service::summary($saleId);$receipts=MDA_Sales_Receipt_Service::receipts($saleId);}}
+  $cash=$db->query("SELECT id,account_code,account_name FROM mda_accounts WHERE account_type='asset' AND is_control=0 AND is_active=1 AND archived_at IS NULL ORDER BY account_code")->fetchAll();$fmt=static function($v):string{return number_format((int)$v,0,'.',',');};
+  ?>
+  <div class="wrap" dir="rtl"><h1>دریافت از مشتری</h1><p>ثبت فروش به معنی وصول وجه نیست. دریافت‌ها به‌صورت سند مستقل و تغییرناپذیر ثبت می‌شوند؛ پرداخت درگاه فقط پس از تطبیق واقعی تراکنش باید ثبت شود.</p><?php self::notices(); ?>
+  <?php if($sale&&$summary): ?><div style="background:#fff;padding:18px;max-width:1100px;margin:16px 0"><h2>فروش <?php echo esc_html($sale['document_number']); ?> — سفارش #<?php echo (int)$sale['order_id']; ?></h2>
+  <p>مشتری: <?php echo esc_html($sale['display_name']); ?> | مبلغ فروش: <strong><?php echo esc_html($fmt($summary['total_minor'])); ?> <?php echo esc_html($sale['currency_code']); ?></strong> | دریافت‌شده: <?php echo esc_html($fmt($summary['received_minor'])); ?> | مانده: <strong><?php echo esc_html($fmt($summary['receivable_minor'])); ?></strong></p>
+  <?php if($summary['receivable_minor']>0): ?><form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>"><input type="hidden" name="action" value="mda_record_sales_receipt"><input type="hidden" name="sale_id" value="<?php echo (int)$saleId; ?>"><?php wp_nonce_field('mda_record_sales_receipt_'.$saleId); ?>
+  <p><label>مبلغ دریافت (<?php echo esc_html($sale['currency_code']); ?>) <input required type="number" min="1" max="<?php echo (int)$summary['receivable_minor']; ?>" name="amount_minor"></label>
+  <label>صندوق/بانک <select name="cash_account_id" required><option value="">انتخاب حساب</option><?php foreach($cash as $a): ?><option value="<?php echo (int)$a['id']; ?>"><?php echo esc_html($a['account_code'].' — '.$a['account_name']); ?></option><?php endforeach; ?></select></label>
+  <label>روش دریافت <select name="payment_method"><option value="cash">نقد</option><option value="bank">بانک</option><option value="pos">کارتخوان</option><option value="transfer">انتقال</option><option value="gateway">درگاه بانکی (پس از تطبیق)</option></select></label>
+  <label>تاریخ دریافت <input type="date" required name="payment_date" value="<?php echo esc_attr(current_time('Y-m-d')); ?>"></label></p><button class="button button-primary">ثبت دریافت و سند حسابداری</button></form><?php else: ?><p>این فاکتور تسویه شده است.</p><?php endif; ?>
+  <h3>سوابق دریافت</h3><table class="widefat striped"><thead><tr><th>تاریخ</th><th>مبلغ</th><th>حساب</th><th>روش</th><th>سند</th></tr></thead><tbody><?php foreach($receipts as $r): ?><tr><td><?php echo esc_html($r['payment_date']); ?></td><td><?php echo esc_html($fmt($r['amount_minor'])); ?></td><td><?php echo esc_html($r['account_code'].' — '.$r['account_name']); ?></td><td><?php echo esc_html(array('cash'=>'نقد','bank'=>'بانک','pos'=>'کارتخوان','transfer'=>'انتقال','gateway'=>'درگاه')[$r['payment_method']]??$r['payment_method']); ?></td><td><?php echo esc_html($r['accounting_document_number']); ?></td></tr><?php endforeach; ?><?php if(!$receipts): ?><tr><td colspan="5">دریافتی ثبت نشده است.</td></tr><?php endif; ?></tbody></table></div><?php endif; ?>
+  <h2>فروش‌ها و مانده دریافتنی</h2><table class="widefat striped"><thead><tr><th>سند فروش</th><th>سفارش</th><th>مشتری</th><th>تاریخ</th><th>مبلغ</th><th>دریافت</th><th>مانده</th><th>عملیات</th></tr></thead><tbody>
+  <?php foreach($rows as $r): $balance=(int)$r['total_minor']-(int)$r['received_minor']; ?><tr><td><?php echo esc_html($r['document_number']); ?></td><td>#<?php echo (int)$r['order_id']; ?></td><td><?php echo esc_html($r['display_name']); ?></td><td><?php echo esc_html($r['document_date']); ?></td><td><?php echo esc_html($fmt($r['total_minor']).' '.$r['currency_code']); ?></td><td><?php echo esc_html($fmt($r['received_minor'])); ?></td><td><strong><?php echo esc_html($fmt($balance)); ?></strong></td><td><a href="<?php echo esc_url(add_query_arg(array('page'=>'mda-sales-receipts','sale_id'=>(int)$r['id']),admin_url('admin.php'))); ?>">جزئیات / ثبت دریافت</a></td></tr><?php endforeach; ?>
+  <?php if(!$rows): ?><tr><td colspan="8">فروشی ثبت نشده است.</td></tr><?php endif; ?></tbody></table></div>
+  <?php
+ }
  public static function render_parties(): void {
   self::guard();if(!MDA_Database::is_available()){echo '<div class="wrap"><div class="notice notice-error"><p>برای مدیریت طرف‌حساب‌ها باید PDO_SQLite فعال باشد.</p></div></div>';return;}$edit=!empty($_GET['edit'])?MDA_Party_Service::get(absint($_GET['edit'])):null;$roles=array('customer'=>'مشتری','supplier'=>'تأمین‌کننده','employee'=>'کارمند','partner'=>'شریک','other'=>'سایر');$rows=MDA_Party_Service::search(sanitize_text_field(wp_unslash($_GET['s']??'')));
   ?>
@@ -277,7 +308,7 @@ final class MDA_Admin {
 
  private static function notices(): void {
   if(!empty($_GET['mda_notice'])) {
-   $messages=array('party_saved'=>'طرف‌حساب ذخیره شد.','party_archived'=>'طرف‌حساب بایگانی شد.','account_saved'=>'حساب ذخیره شد.','purchase_draft_created'=>'پیش‌نویس خرید ایجاد شد.','purchase_posted'=>'فاکتور قطعی و موجودی ثبت شد.','purchase_already_posted'=>'این فاکتور قبلاً قطعی شده است.','payment_recorded'=>'پرداخت مرحله‌ای ثبت شد.','payment_duplicate'=>'این پرداخت قبلاً ثبت شده است.','purchase_return_posted'=>'مرجوعی و سند اصلاحی ثبت شد.');
+   $messages=array('party_saved'=>'طرف‌حساب ذخیره شد.','party_archived'=>'طرف‌حساب بایگانی شد.','account_saved'=>'حساب ذخیره شد.','purchase_draft_created'=>'پیش‌نویس خرید ایجاد شد.','purchase_posted'=>'فاکتور قطعی و موجودی ثبت شد.','purchase_already_posted'=>'این فاکتور قبلاً قطعی شده است.','payment_recorded'=>'پرداخت مرحله‌ای ثبت شد.','payment_duplicate'=>'این پرداخت قبلاً ثبت شده است.','purchase_return_posted'=>'مرجوعی و سند اصلاحی ثبت شد.','sales_receipt_recorded'=>'دریافت مشتری و سند حسابداری ثبت شد.','sales_receipt_duplicate'=>'این دریافت قبلاً ثبت شده است.');
    $key=sanitize_key(wp_unslash($_GET['mda_notice']));$message=$messages[$key]??'عملیات با موفقیت انجام شد.';
    echo '<div class="notice notice-success"><p>'.esc_html($message).'</p></div>';
   }
