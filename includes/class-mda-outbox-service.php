@@ -7,7 +7,7 @@ final class MDA_Outbox_Service {
   if(!$order||!is_object($order)||!method_exists($order,'get_id'))return;
   $status=$order->get_status();if(!in_array($status,array('processing','completed'),true))return;
   if((float)$order->get_total_refunded()>0)throw new RuntimeException('سفارش دارای استرداد قبلی است؛ ابتدا باید گردش مرجوعی تعریف شود.');
-  $currency=strtoupper((string)$order->get_currency());
+  $currency=strtoupper((string)$order->get_currency());if(!in_array($currency,array('IRR','IRT'),true))throw new RuntimeException('در این نسخه فروش فقط با واحد پول IRR یا IRT پشتیبانی می‌شود.');
   $warehouse=(int)$order->get_meta('_mda_sales_warehouse_id',true);if($warehouse<1)$warehouse=(int)get_option('mda_sales_warehouse_id',0);
   if($warehouse<1){$q=MDA_Database::connection()->query("SELECT id FROM mda_warehouses WHERE warehouse_code='MAIN' AND is_active=1 LIMIT 1");$warehouse=(int)$q->fetchColumn();}
   $items=array();foreach($order->get_items('line_item') as $itemId=>$item){
@@ -16,7 +16,8 @@ final class MDA_Outbox_Service {
   }
   $shipping=0;foreach($order->get_items('shipping') as $item)$shipping+=self::money($item->get_total());
   $fees=0;foreach($order->get_items('fee') as $item)$fees+=self::money($item->get_total());
-  $payload=array('order_id'=>(int)$order->get_id(),'currency'=>$currency,'date'=>substr((string)$order->get_date_created()->date('Y-m-d'),0,10),'warehouse_id'=>$warehouse,'channel'=>in_array($order->get_created_via(),array('mda_phone','mda_in_person'),true)?($order->get_created_via()==='mda_phone'?'phone':'in_person'):'website','customer'=>array('name'=>trim($order->get_billing_first_name().' '.$order->get_billing_last_name()),'phone'=>(string)$order->get_billing_phone(),'email'=>(string)$order->get_billing_email()),'created_by_user_id'=>(int)$order->get_meta('_mda_created_by_user_id',true),'items'=>$items,'shipping_minor'=>$shipping,'fees_minor'=>$fees,'tax_minor'=>self::money($order->get_total_tax()),'total_minor'=>self::money($order->get_total()),'idempotency_key'=>'wc-sale-'.$order->get_id().'-v1');
+  $created=$order->get_date_created();$orderDate=$created?$created->date('Y-m-d'):current_time('Y-m-d');
+  $payload=array('order_id'=>(int)$order->get_id(),'currency'=>$currency,'date'=>$orderDate,'warehouse_id'=>$warehouse,'channel'=>in_array($order->get_created_via(),array('mda_phone','mda_in_person'),true)?($order->get_created_via()==='mda_phone'?'phone':'in_person'):'website','customer'=>array('name'=>trim($order->get_billing_first_name().' '.$order->get_billing_last_name()),'phone'=>(string)$order->get_billing_phone(),'email'=>(string)$order->get_billing_email()),'created_by_user_id'=>(int)$order->get_meta('_mda_created_by_user_id',true),'items'=>$items,'shipping_minor'=>$shipping,'fees_minor'=>$fees,'tax_minor'=>self::money($order->get_total_tax()),'total_minor'=>self::money($order->get_total()),'idempotency_key'=>'wc-sale-'.$order->get_id().'-v1');
   $json=wp_json_encode($payload);$now=gmdate('Y-m-d H:i:s');$db=MDA_Database::connection();
   $q=$db->prepare('SELECT payload_json FROM mda_integration_outbox WHERE event_key=:key');$q->execute(array(':key'=>$payload['idempotency_key']));$existing=$q->fetchColumn();
   if($existing!==false){$old=json_decode((string)$existing,true);if(!is_array($old)||!hash_equals(hash('sha256',wp_json_encode($old)),hash('sha256',$json)))throw new RuntimeException('کلید سفارش قبلاً با snapshot متفاوتی وارد صف شده است.');return;}
