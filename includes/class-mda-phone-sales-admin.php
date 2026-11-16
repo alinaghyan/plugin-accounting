@@ -36,7 +36,7 @@ final class MDA_Phone_Sales_Admin {
    <label>نوع فروش <select name="channel"><option value="phone">تلفنی</option><option value="in_person">حضوری</option></select></label></p>
    <h2>اقلام فروش</h2>
    <p>قیمت واحد را با واحد پول تنظیم‌شده در WooCommerce وارد کنید. تخفیف را در قیمت نهایی واحد لحاظ کنید. در این نسخه مالیات و هزینه ارسال برای فروش سریع صفر است.</p>
-   <table class="widefat striped"><thead><tr><th>شناسه محصول</th><th>شناسه تنوع</th><th>تعداد</th><th>قیمت واحد (ریال)</th></tr></thead><tbody>
+   <table class="widefat striped"><thead><tr><th>شناسه محصول</th><th>شناسه تنوع</th><th>تعداد</th><th>قیمت واحد (واحد پول فروشگاه)</th></tr></thead><tbody>
    <?php for($i=0;$i<8;$i++): ?><tr><td><input type="number" min="1" name="lines[<?php echo $i; ?>][product_id]"></td><td><input type="number" min="0" name="lines[<?php echo $i; ?>][variation_id]" value="0"></td><td><input type="text" name="lines[<?php echo $i; ?>][quantity]" placeholder="1"></td><td><input type="number" min="0" step="1" name="lines[<?php echo $i; ?>][unit_price_minor]"></td></tr><?php endfor; ?>
    </tbody></table>
    <p><button class="button button-primary" type="submit">ایجاد سفارش و ارسال به حسابداری</button></p>
@@ -63,7 +63,7 @@ final class MDA_Phone_Sales_Admin {
    $raw=(array)wp_unslash($_POST['lines']??array());$lines=array();$payloadLines=array();
    foreach($raw as $row){$productId=absint($row['product_id']??0);if(!$productId)continue;$variationId=absint($row['variation_id']??0);$qtyText=strtr(trim((string)($row['quantity']??'')),array('۰'=>'0','۱'=>'1','۲'=>'2','۳'=>'3','۴'=>'4','۵'=>'5','۶'=>'6','۷'=>'7','۸'=>'8','۹'=>'9',','=>'.','٫'=>'.'));if(!preg_match('/^(?:0|[1-9][0-9]*)(?:\.[0-9]{1,6})?$/',$qtyText))throw new InvalidArgumentException('تعداد یکی از کالاها معتبر نیست.');
     $parts=explode('.',$qtyText);$qtyScaled=(int)$parts[0]*1000000+(int)str_pad($parts[1]??'',6,'0');if($qtyScaled<1)throw new InvalidArgumentException('تعداد کالا باید مثبت باشد.');
-    $unit=filter_var((string)($row['unit_price_minor']??''),FILTER_VALIDATE_INT);if(false===$unit||$unit<0)throw new InvalidArgumentException('قیمت واحد باید عدد صحیح نامنفی به ریال باشد.');
+    $unit=filter_var((string)($row['unit_price_minor']??''),FILTER_VALIDATE_INT);if(false===$unit||$unit<0)throw new InvalidArgumentException('قیمت واحد باید عدد صحیح نامنفی در واحد پول فروشگاه باشد.');
     $product=wc_get_product($variationId?:$productId);if(!$product||!$product->exists())throw new InvalidArgumentException('یکی از محصولات یا تنوع‌های انتخاب‌شده وجود ندارد.');
     if($unit>0&&$qtyScaled>intdiv(PHP_INT_MAX,$unit))throw new OverflowException('مبلغ ردیف فروش بیش از ظرفیت مجاز است.');
     $lineTotal=intdiv($unit*$qtyScaled,1000000);$lines[]=array('product'=>$product,'qty'=>(float)$qtyText,'total'=>(string)$lineTotal);$payloadLines[]=array($productId,$variationId,$qtyScaled,$unit);
@@ -90,7 +90,7 @@ final class MDA_Phone_Sales_Admin {
    $db->prepare("UPDATE mda_phone_sale_requests SET order_id=:id,status='created',updated_at=:now WHERE request_key=:key")->execute(array(':id'=>$orderId,':now'=>gmdate('Y-m-d H:i:s'),':key'=>$key));
    
    $order->update_status('processing','ثبت فروش تلفنی/حضوری از MaliDev Accounting');
-   wp_safe_redirect(admin_url('post.php?post='.$orderId.'&action=edit'));exit;
+   wp_safe_redirect(admin_url('admin.php?page=wc-orders&action=edit&id='.$orderId));exit;
   }catch(Throwable $e){
    if(isset($key)&&$key!==''){try{MDA_Database::connection()->prepare("UPDATE mda_phone_sale_requests SET status='failed',last_error=:error,updated_at=:now WHERE request_key=:key AND status='creating'")->execute(array(':error'=>substr($e->getMessage(),0,1000),':now'=>gmdate('Y-m-d H:i:s'),':key'=>$key));}catch(Throwable $ignored){}}
    wp_safe_redirect(add_query_arg(array('page'=>'mda-phone-sales','mda_error'=>rawurlencode($e->getMessage())),admin_url('admin.php')));exit;
