@@ -53,7 +53,7 @@ final class MDA_Outbox_Service {
   return$results;
  }
  private static function money($value): int {
-  $raw=wc_format_decimal($value,0);if(!preg_match('/^-?\d+$/',(string)$raw))throw new InvalidArgumentException('مبلغ سفارش باید عدد صحیح ریال باشد.');$n=filter_var($raw,FILTER_VALIDATE_INT);if(false===$n||$n<0)throw new InvalidArgumentException('مبلغ سفارش خارج از محدوده مجاز است.');return(int)$n;
+  $raw=wc_format_decimal($value,0);if(!preg_match('/^-?\d+$/',(string)$raw))throw new InvalidArgumentException('مبلغ سفارش باید عدد صحیح در واحد پول فروشگاه باشد.');$n=filter_var($raw,FILTER_VALIDATE_INT);if(false===$n||$n<0)throw new InvalidArgumentException('مبلغ سفارش خارج از محدوده مجاز است.');return(int)$n;
  }
  private static function scale_quantity(string $value): int {
   if(!preg_match('/^(\d+)(?:\.(\d{1,6}))?$/',$value))throw new InvalidArgumentException('مقدار سفارش بیش از ۶ رقم اعشار یا نامعتبر است.');
