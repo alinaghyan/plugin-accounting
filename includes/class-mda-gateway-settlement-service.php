@@ -49,6 +49,10 @@ final class MDA_Gateway_Settlement_Service {
    $ga=$db->prepare('SELECT account_id FROM mda_gateway_accounts WHERE gateway_key=:key');$ga->execute(array(':key'=>$batch['gateway_key']));$clearing=(int)$ga->fetchColumn();
    $lines=$db->prepare('SELECT * FROM mda_gateway_settlement_lines WHERE settlement_id=:id ORDER BY line_number');$lines->execute(array(':id'=>$id));$rows=$lines->fetchAll();if(!$rows)throw new RuntimeException('تسویه فاقد ردیف است.');
    $gross=0;$fee=0;$net=0;foreach($rows as $r){$gross=self::add($gross,(int)$r['gross_minor']);$fee=self::add($fee,(int)$r['fee_minor']);$net=self::add($net,(int)$r['net_minor']);}
+   $usage=$db->prepare("SELECT COALESCE(SUM(l.gross_minor),0) FROM mda_gateway_settlement_lines l JOIN mda_gateway_settlement_events e ON e.settlement_id=l.settlement_id AND e.action='posted' WHERE l.payment_id=:payment");
+   $paymentTotal=$db->prepare('SELECT gross_minor FROM mda_gateway_payments WHERE id=:id');
+   foreach($rows as $r){$usage->execute(array(':payment'=>$r['payment_id']));$settled=(int)$usage->fetchColumn();$paymentTotal->execute(array(':id'=>$r['payment_id']));$captured=(int)$paymentTotal->fetchColumn();if((int)$r['gross_minor']>$captured-$settled)throw new RuntimeException('مجموع تسویه‌های قطعی این پرداخت از مبلغ ناخالص تأییدشده بیشتر می‌شود.');}
+
    if($gross!==$fee+$net)throw new RuntimeException('جمع ناخالص، کارمزد و خالص تسویه متوازن نیست.');
    $feeAccount=(int)$db->query("SELECT id FROM mda_accounts WHERE account_code='5240' AND is_active=1 AND archived_at IS NULL")->fetchColumn();if(!$feeAccount)throw new RuntimeException('سرفصل کارمزد 5240 پیدا نشد.');
    $now=gmdate('Y-m-d H:i:s');$number='MDA-GWY-'.gmdate('Ymd').'-'.strtoupper(bin2hex(random_bytes(4)));$hash=hash('sha256',wp_json_encode(array($id,$gross,$fee,$net)));
