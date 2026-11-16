@@ -29,3 +29,5 @@ jobs:
         run: php tests/purchase-workflow-smoke.php
       - name: Purchase settlement and return integration smoke test
         run: php tests/purchase-settlements-returns-smoke.php
+      - name: Sales outbox and COGS integration smoke test
+        run: php tests/sales-outbox-cogs-smoke.php
