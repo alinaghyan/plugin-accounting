@@ -92,8 +92,11 @@ final class MDA_Capabilities {
 	 * Capability required by each admin-post action. Unknown actions need MANAGE.
 	 */
 	public static function for_action( string $action ): string {
-		if ( preg_match( '/^mda_(run_|save_account|gateway_configure|backup|restore|reclaim|close_period|reopen_period|save_settings|license)/', $action ) ) {
+		if ( preg_match( '/^mda_(run_|save_account|gateway_configure|backup|restore|reclaim|close_period|reopen_period|create_period|save_settings|license)/', $action ) ) {
 			return self::MANAGE;
+		}
+		if ( preg_match( '/^mda_export/', $action ) ) {
+			return self::VIEW_REPORTS;
 		}
 		if ( preg_match( '/^mda_(void|reverse)/', $action ) ) {
 			return self::VOID_DOCUMENTS;

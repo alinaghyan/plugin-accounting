@@ -23,15 +23,11 @@ jobs:
           coverage: none
       - name: PHP syntax check
         run: find . -name "*.php" -not -path "./vendor/*" -print0 | xargs -0 -n1 php -l
-      - name: SQLite schema smoke test
-        run: php tests/sqlite-schema-smoke.php
-      - name: Purchase workflow integration smoke test
-        run: php tests/purchase-workflow-smoke.php
-      - name: Purchase settlement and return integration smoke test
-        run: php tests/purchase-settlements-returns-smoke.php
-      - name: Sales outbox and COGS integration smoke test
-        run: php tests/sales-outbox-cogs-smoke.php
-      - name: Cheque lifecycle integration smoke test
-        run: php tests/cheque-management-smoke.php
-      - name: Gateway settlement integration smoke test
-        run: php tests/gateway-settlement-smoke.php
+      - name: Integration smoke tests (all)
+        run: |
+          set -e
+          for test in tests/*-smoke.php; do
+            echo "::group::$test"
+            php "$test"
+            echo "::endgroup::"
+          done

@@ -53,6 +53,9 @@ final class MDA_Admin {
   wp_enqueue_style('mda-admin',MDA_URL.'assets/css/admin.css',array('mda-bootstrap-rtl'),(string)filemtime($base.'css/admin.css'));
   wp_enqueue_script('mda-bootstrap',MDA_URL.'assets/vendor/bootstrap/bootstrap.bundle.min.js',array(),MDA_VERSION,true);
   wp_enqueue_script('mda-admin',MDA_URL.'assets/js/admin.js',array('mda-bootstrap'),(string)filemtime($base.'js/admin.js'),true);
+  wp_enqueue_script('mda-jalali',MDA_URL.'assets/js/mda-jalali.js',array('mda-admin'),(string)filemtime($base.'js/mda-jalali.js'),true);
+  $jalali=1;try{$jalali=(int)MDA_Settings::get('jalali_dates');}catch(Throwable $e){}
+  wp_add_inline_script('mda-jalali','window.mdaSettings='.wp_json_encode(array('jalali'=>$jalali)).';','before');
  }
  private static function guard(): void {
   if(!MDA_Capabilities::user_can_action()) wp_die(esc_html__('شما اجازه دسترسی به این بخش را ندارید.','malidev-accounting'));

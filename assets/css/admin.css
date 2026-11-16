@@ -61,3 +61,14 @@ body.mda-admin .mda-empty{padding:34px;text-align:center;color:var(--mda-muted)}
 .mda-shell__pill{padding:4px 12px;border-radius:999px;text-decoration:none;color:var(--mda-muted,#748198);background:#f4f6fb;font-size:12.5px}
 .mda-shell__pill.is-active{color:var(--mda-primary,#635bdb);background:#ebe9fd;font-weight:700}
 @media (prefers-reduced-motion:reduce){.mda-shell img{animation:none}}
+
+/* New screens */
+.mda-ok{color:var(--mda-success,#149b72);font-weight:700}
+.mda-bad{color:var(--mda-danger,#d94b67);font-weight:700}
+.mda-muted{color:var(--mda-muted,#748198)}
+.mda-grid-2{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:18px}
+.mda-filter,.mda-inline{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:10px 0}
+.mda-jdate{direction:ltr;text-align:center;font-family:Tahoma,sans-serif}
+.mda-amount{direction:ltr;text-align:left;min-width:120px}
+.mda-journal-lines select{max-width:260px}
+.mda-journal-lines tfoot th{font-size:14px}
