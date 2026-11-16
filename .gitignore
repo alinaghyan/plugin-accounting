@@ -1,3 +1,4 @@
+# Vendored assets are committed locally; no build output is required.
 # Local/editor files
 .DS_Store
 .idea/
