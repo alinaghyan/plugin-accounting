@@ -7,6 +7,7 @@ final class MDA_WooCommerce {
   if(!class_exists('WooCommerce'))return;
   add_action('woocommerce_order_status_processing',array(__CLASS__,'queue_order'),20,1);
   add_action('woocommerce_order_status_completed',array(__CLASS__,'queue_order'),20,1);
+  add_action('woocommerce_payment_complete',array(__CLASS__,'queue_gateway_payment'),30,1);
   add_action('mda_process_outbox',array(__CLASS__,'process_outbox'));
   add_action('mda_process_outbox_batch',array(__CLASS__,'process_outbox'));
   add_action('mda_reconcile_woocommerce_batch',array(__CLASS__,'reconcile_orders'));
@@ -14,6 +15,10 @@ final class MDA_WooCommerce {
   add_action('mda_woocommerce_stock_sync_continue',array(__CLASS__,'sync_stock'),10,1);
   if(!wp_next_scheduled('mda_process_outbox'))wp_schedule_event(time()+120,'hourly','mda_process_outbox');
   if(!wp_next_scheduled('mda_reconcile_woocommerce_batch'))wp_schedule_event(time()+300,'daily','mda_reconcile_woocommerce_batch');
+ }
+ public static function queue_gateway_payment($orderId): void {
+  try{$order=wc_get_order($orderId);if(!$order||!$order->is_paid())return;$gateway=sanitize_key((string)$order->get_payment_method());$reference=trim((string)$order->get_transaction_id());if($gateway===''||$reference==='')return;MDA_Outbox_Service::enqueue_gateway_payment($order,$gateway,$reference);}
+  catch(Throwable $e){error_log('MaliDev Accounting gateway payment enqueue failed for order '.absint($orderId).': '.$e->getMessage());}
  }
  public static function queue_order($orderId): void {
   try{$order=wc_get_order($orderId);if($order)MDA_Outbox_Service::enqueue_order($order);}

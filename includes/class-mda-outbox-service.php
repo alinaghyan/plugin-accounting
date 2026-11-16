@@ -25,6 +25,19 @@ final class MDA_Outbox_Service {
   $insert->execute(array(':key'=>$payload['idempotency_key'],':id'=>(string)$order->get_id(),':payload'=>$json,':now'=>$now));
   if(!wp_next_scheduled('mda_process_outbox_batch'))wp_schedule_single_event(time()+5,'mda_process_outbox_batch');
  }
+ public static function enqueue_gateway_payment($order,string $gateway,string $reference):void {
+  if(!$order||!is_object($order)||!method_exists($order,'get_id'))return;
+  $orderId=(int)$order->get_id();$gateway=sanitize_key($gateway);$reference=trim($reference);$currency=strtoupper((string)$order->get_currency());
+  if($orderId<1||$gateway===''||$reference===''||strlen($reference)>120||!$order->is_paid()||!in_array($currency,array('IRR','IRT'),true))return;
+  $gross=self::money($order->get_total());if($gross<1)return;
+  $key='wc-gateway-capture-'.$orderId.'-'.$gateway;
+  $payload=array('order_id'=>$orderId,'gateway_key'=>$gateway,'gross_minor'=>$gross,'currency_code'=>$currency,'reference_number'=>$reference,'idempotency_key'=>$key);
+  $db=MDA_Database::connection();$q=$db->prepare('SELECT payload_json FROM mda_integration_outbox WHERE event_key=:key');$q->execute(array(':key'=>$key));$old=$q->fetchColumn();$json=wp_json_encode($payload);
+  if($old!==false){$previous=json_decode((string)$old,true);if(!is_array($previous)||!hash_equals(hash('sha256',wp_json_encode($previous)),hash('sha256',$json)))throw new RuntimeException('کلید پرداخت درگاه قبلاً با اطلاعات متفاوت ثبت شده است.');return;}
+  $now=gmdate('Y-m-d H:i:s');$q=$db->prepare("INSERT INTO mda_integration_outbox (event_key,event_type,aggregate_type,aggregate_id,payload_json,status,attempts,available_at,created_at) VALUES (:key,'gateway.capture','woocommerce_order',:id,:payload,'pending',0,:now,:now)");
+  $q->execute(array(':key'=>$key,':id'=>(string)$orderId,':payload'=>$json,':now'=>$now));
+  if(!wp_next_scheduled('mda_process_outbox_batch'))wp_schedule_single_event(time()+5,'mda_process_outbox_batch');
+ }
  public static function process_batch(int $limit=10): array {
   $db=MDA_Database::connection();$now=gmdate('Y-m-d H:i:s');
   // Recover workers that died after claiming an event.
@@ -38,7 +51,11 @@ final class MDA_Outbox_Service {
     $payload=json_decode((string)$event['payload_json'],true);
     if(!is_array($payload))throw new RuntimeException('محتوای رویداد outbox قابل خواندن نیست.');
     if($event['event_type']==='sale.post')MDA_Sales_Service::post_order_payload($payload);
-    else throw new RuntimeException('نوع رویداد outbox پشتیبانی نمی‌شود.');
+    elseif($event['event_type']==='gateway.capture'){
+     $sale=$db->prepare("SELECT id FROM mda_sales_documents WHERE order_id=:order AND status='posted'");$sale->execute(array(':order'=>(int)$payload['order_id']));
+     if(!$sale->fetchColumn()){$saleEvent=$db->prepare("SELECT payload_json FROM mda_integration_outbox WHERE event_key=:key AND event_type='sale.post'");$saleEvent->execute(array(':key'=>'wc-sale-'.(int)$payload['order_id'].'-v1'));$salePayload=json_decode((string)$saleEvent->fetchColumn(),true);if(!is_array($salePayload))throw new RuntimeException('رویداد فروش سفارش هنوز در صف ثبت نشده است.');MDA_Sales_Service::post_order_payload($salePayload);}
+     MDA_Gateway_Settlement_Service::capture((int)$payload['order_id'],(string)$payload['gateway_key'],(int)$payload['gross_minor'],(string)$payload['reference_number'],(string)$payload['idempotency_key']);
+    } else throw new RuntimeException('نوع رویداد outbox پشتیبانی نمی‌شود.');
     // Posting is atomic inside MDA_Sales_Service. If the worker stops here,
     // retry safely observes the same immutable sale via its unique order key.
     $db->prepare("UPDATE mda_integration_outbox SET status='completed',processed_at=:now,locked_at=NULL,last_error=NULL WHERE id=:id AND status='processing'")->execute(array(':now'=>gmdate('Y-m-d H:i:s'),':id'=>$event['id']));

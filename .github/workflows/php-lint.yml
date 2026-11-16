@@ -33,3 +33,5 @@ jobs:
         run: php tests/sales-outbox-cogs-smoke.php
       - name: Cheque lifecycle integration smoke test
         run: php tests/cheque-management-smoke.php
+      - name: Gateway settlement integration smoke test
+        run: php tests/gateway-settlement-smoke.php
