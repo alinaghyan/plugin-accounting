@@ -229,7 +229,8 @@
 		$b.attr( 'data-oids', orig );
 		openTerms( this, $b.data( 'tax' ), ids, $b.data( 'f' ) === 'cats' ? 'انتخاب دسته‌بندی' : 'انتخاب برچسب', ( sel, names ) => {
 			const now = sel.sort( ( a, b ) => a - b ).join( ',' ), o = String( orig || '' ).split( ',' ).filter( Boolean ).map( Number ).sort( ( a, b ) => a - b ).join( ',' );
-			$b.attr( 'data-ids', now ).html( names.length ? esc( names.join( '، ' ) ) : '<span class="mdg-dim">—</span>' ).toggleClass( 'is-dirty', now !== o );
+			const summary = names.length ? '<span class="mdg-terms__names">' + esc( names.slice( 0, 2 ).join( '، ' ) ) + '</span>' + ( names.length > 2 ? '<b class="mdg-terms__more">+' + fa( names.length - 2 ) + '</b>' : '' ) : '<span class="mdg-dim">—</span>';
+			$b.attr( 'data-ids', now ).attr( 'title', names.join( '، ' ) ).html( summary ).toggleClass( 'is-dirty', now !== o );
 			setPending( rowId( $b ), $b.data( 'f' ), now, now !== o );
 		} );
 	} );

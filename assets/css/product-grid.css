@@ -55,7 +55,7 @@
 .mdg-grid tr.is-selected td{background:#f5f3ff}
 .mdg-grid tr.is-dirty td:first-child{box-shadow:inset -3px 0 0 var(--g-warn)}
 .mdg-grid tr.has-error td{background:#fff1f2}
-.mdg-grid tr.is-inactive td{opacity:.78}
+.mdg-grid tr.is-inactive td{color:#8a90a2;background:#fcfcfd}
 .mdg-grid tr.is-child td{background:#fbfcfe}
 .mdg-grid tr.is-child .mdg-c-name{padding-right:22px}
 .mdg-grid th.mdg-c-name,.mdg-grid td.mdg-c-name{position:sticky;right:0;z-index:2;text-align:right;min-width:230px;box-shadow:-1px 0 0 var(--g-line)}
@@ -121,7 +121,10 @@ button.mdg-badge:hover{transform:translateY(-1px);filter:brightness(.97)}
 .mdg-tag--low{background:#fef9c3;color:#a16207}
 .mdg-tag--neg{background:#7f1d1d;color:#fff}
 .mdg-range{font-size:11.5px;color:#475569;line-height:1.6}
-.mdg-sched,.mdg-terms{border:1px solid transparent;background:transparent;border-radius:8px;padding:3px 8px;font:inherit;font-size:11.5px;cursor:pointer;line-height:1.6;max-width:190px;white-space:normal;transition:.15s}
+.mdg-sched,.mdg-terms{border:1px solid transparent;background:transparent;border-radius:8px;padding:3px 8px;font:inherit;font-size:11.5px;cursor:pointer;line-height:1.6;white-space:nowrap;transition:.15s}
+.mdg-terms{display:inline-flex;align-items:center;gap:6px;max-width:220px}
+.mdg-terms__names{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.mdg-terms__more{flex:none;padding:0 7px;border-radius:999px;background:#ede9fe;color:#5b21b6;font-size:10.5px;line-height:1.8}
 .mdg-sched:hover,.mdg-terms:hover{border-color:var(--g-line);background:#fff}
 .mdg-branch{color:#a5b4fc}
 .mdg-var-name{color:#4338ca;text-decoration:none;font-size:12px}
@@ -214,3 +217,13 @@ button.mdg-badge:hover{transform:translateY(-1px);filter:brightness(.97)}
 
 .mdg-in--sel{min-width:150px;text-align:right;cursor:pointer}
 .mdg-c-supplier{min-width:160px}
+
+/* Keep the spreadsheet compact: the accounting admin form styles (40px bordered inputs) must not apply inside the grid. */
+body.mda-admin #wpbody-content .mdg-grid .mdg-in{min-height:32px;height:32px;padding:4px 8px;border:1px solid transparent;border-radius:7px;background:transparent;box-shadow:none;font-size:12.5px;line-height:1.4}
+body.mda-admin #wpbody-content .mdg-grid .mdg-in:hover{border-color:var(--g-line);background:#fff}
+body.mda-admin #wpbody-content .mdg-grid .mdg-in:focus{border-color:var(--g-acc);background:#fff;box-shadow:0 0 0 3px rgba(143,23,72,.12)}
+body.mda-admin #wpbody-content .mdg-grid .mdg-in.is-dirty{background:#fffbeb;border-color:#fcd34d}
+body.mda-admin #wpbody-content .mdg-grid .mdg-in.is-preview{background:#ecfeff;border-color:#67e8f9}
+body.mda-admin #wpbody-content .mdg-grid .mdg-in--sel{padding-left:22px}
+body.mda-admin #wpbody-content .mdg-grid .mdg-in--check{min-height:16px;height:16px;width:16px}
+.mdg-grid td{max-width:260px}

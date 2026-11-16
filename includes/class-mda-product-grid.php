@@ -403,12 +403,22 @@ final class MDA_Product_Grid {
 				$terms = get_the_terms( $id, $tax );
 				$terms = is_array( $terms ) ? $terms : array();
 				$names = wp_list_pluck( $terms, 'name' );
-				$o    .= '<td class="mdg-c-terms"><button type="button" class="mdg-terms" data-f="' . esc_attr( $f ) . '" data-tax="' . esc_attr( $tax ) . '" data-ids="' . esc_attr( implode( ',', wp_list_pluck( $terms, 'term_id' ) ) ) . '">' . ( $names ? esc_html( implode( '، ', $names ) ) : '<span class="mdg-dim">' . ( 'cats' === $f ? 'بدون دسته‌بندی' : '—' ) . '</span>' ) . '</button></td>';
+				$o    .= '<td class="mdg-c-terms"><button type="button" class="mdg-terms" data-f="' . esc_attr( $f ) . '" data-tax="' . esc_attr( $tax ) . '" data-ids="' . esc_attr( implode( ',', wp_list_pluck( $terms, 'term_id' ) ) ) . '" title="' . esc_attr( implode( '، ', $names ) ) . '">' . ( $names ? self::terms_summary( $names ) : '<span class="mdg-dim">' . ( 'cats' === $f ? 'بدون دسته‌بندی' : '—' ) . '</span>' ) . '</button></td>';
 			}
 		}
 		$o .= '<td class="mdg-c-supplier">' . ( $is_var ? '<span class="mdg-dim" title="از محصول اصلی">↰</span>' : self::supplier_select( (int) $id ) ) . '</td>';
 		$o .= '<td class="mdg-c-sku"><input class="mdg-in mdg-in--sku" dir="ltr" data-f="sku" data-o="' . esc_attr( $p->get_sku( 'edit' ) ) . '" value="' . esc_attr( $p->get_sku( 'edit' ) ) . '" aria-label="SKU"></td>';
 		return $o . '</tr>';
+	}
+
+	/**
+	 * At most two names on one line plus «+N»; the full list is in the title tooltip. Long term
+	 * lists used to wrap word by word and blow every row up to hundreds of pixels.
+	 */
+	private static function terms_summary( array $names ): string {
+		$shown = array_slice( $names, 0, 2 );
+		$more  = count( $names ) - count( $shown );
+		return '<span class="mdg-terms__names">' . esc_html( implode( '، ', $shown ) ) . '</span>' . ( $more > 0 ? '<b class="mdg-terms__more">+' . esc_html( number_format_i18n( $more ) ) . '</b>' : '' );
 	}
 
 	/** Inline supplier select (internal; never shown to customers). */
