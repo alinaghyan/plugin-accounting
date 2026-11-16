@@ -110,7 +110,8 @@ $changed=$payload;$changed['total_minor']=6601;$rejected=false;try{MDA_Sales_Ser
 $cashIncome=(int)$db->query("SELECT id FROM mda_accounts WHERE account_code='4400'")->fetchColumn();
 $cashExpense=(int)$db->query("SELECT id FROM mda_accounts WHERE account_code='5210'")->fetchColumn();
 $bankParent=(int)$db->query("SELECT id FROM mda_accounts WHERE account_code='1120'")->fetchColumn();
-$db->prepare("INSERT INTO mda_accounts (account_code,account_name,account_type,parent_id,is_active,created_at,normal_balance,is_control,is_system,allow_manual_entry,description,sort_order) VALUES ('1121','بانک آزمایشی','asset',:parent,1,:now,'debit',0,0,1,'حساب بانکی تست',41)")->execute(array(':parent'=>$bankParent,':now'=>$now));
+$bankCode=1191;while($db->query("SELECT 1 FROM mda_accounts WHERE account_code='".$bankCode."'")->fetchColumn())$bankCode++;
+$db->prepare("INSERT INTO mda_accounts (account_code,account_name,account_type,parent_id,is_active,created_at,normal_balance,is_control,is_system,allow_manual_entry,description,sort_order) VALUES (:code,'بانک آزمایشی','asset',:parent,1,:now,'debit',0,0,1,'حساب بانکی تست',41)")->execute(array(':code'=>(string)$bankCode,':parent'=>$bankParent,':now'=>$now));
 $bankAccount=(int)$db->lastInsertId();
 $cashReceipt=MDA_Cash_Service::record('receipt',5000,$cash,$cashIncome,0,'IRR','bank','test-cash-receipt-001','2026-11-16','درآمد متفرقه تست','CASH-IN-001');
 if(!empty($cashReceipt['duplicate']))throw new RuntimeException('Cash receipt was incorrectly marked duplicate.');
