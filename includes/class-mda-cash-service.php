@@ -41,6 +41,6 @@ final class MDA_Cash_Service {
   return MDA_Database::connection()->query("SELECT a.id,a.account_code,a.account_name,d.currency_code,SUM(j.debit_minor)-SUM(j.credit_minor) balance_minor FROM mda_accounts a JOIN mda_journal_entries j ON j.account_id=a.id JOIN mda_documents d ON d.id=j.document_id WHERE a.account_code GLOB '11*' AND a.account_type='asset' AND a.is_control=0 AND a.allow_manual_entry=1 AND a.is_active=1 AND d.document_status='posted' GROUP BY a.id,d.currency_code ORDER BY a.account_code,d.currency_code")->fetchAll();
  }
  public static function transactions(int $limit=100):array {
-  return MDA_Database::connection()->query('SELECT t.*,a.account_code,a.account_name,d.document_number FROM mda_cash_transactions t JOIN mda_accounts a ON a.id=t.cash_account_id JOIN mda_documents d ON d.id=t.accounting_document_id ORDER BY t.id DESC LIMIT '.max(1,min(500,$limit)))->fetchAll();
+  return MDA_Database::connection()->query('SELECT t.*,a.account_code,a.account_name,d.document_number,c.account_code AS contra_code,c.account_name AS contra_name,dest.account_code AS destination_code,dest.account_name AS destination_name FROM mda_cash_transactions t JOIN mda_accounts a ON a.id=t.cash_account_id LEFT JOIN mda_accounts c ON c.id=t.contra_account_id LEFT JOIN mda_accounts dest ON dest.id=t.destination_cash_account_id JOIN mda_documents d ON d.id=t.accounting_document_id ORDER BY t.id DESC LIMIT '.max(1,min(500,$limit)))->fetchAll();
  }
 }
