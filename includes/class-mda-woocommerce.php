@@ -8,6 +8,7 @@ final class MDA_WooCommerce {
   add_action('woocommerce_order_status_processing',array(__CLASS__,'queue_order'),20,1);
   add_action('woocommerce_order_status_completed',array(__CLASS__,'queue_order'),20,1);
   add_action('mda_process_outbox',array(__CLASS__,'process_outbox'));
+  add_action('mda_process_outbox_batch',array(__CLASS__,'process_outbox'));
   if(!wp_next_scheduled('mda_process_outbox'))wp_schedule_event(time()+120,'hourly','mda_process_outbox');
  }
  public static function queue_order($orderId): void {
