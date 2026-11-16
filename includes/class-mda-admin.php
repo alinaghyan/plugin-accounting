@@ -16,6 +16,7 @@ final class MDA_Admin {
   add_action('admin_post_mda_record_sales_receipt',array(__CLASS__,'record_sales_receipt'));
   add_action('admin_post_mda_post_sales_return',array(__CLASS__,'post_sales_return'));
   add_action('admin_post_mda_record_sales_refund',array(__CLASS__,'record_sales_refund'));
+  add_action('admin_post_mda_run_woocommerce_reconciliation',array(__CLASS__,'run_woocommerce_reconciliation'));
  }
 
  public static function menu(): void {
@@ -26,6 +27,7 @@ final class MDA_Admin {
   add_submenu_page('mda-accounting','خرید و فاکتور خرید','خرید و انبار',MDA_Capabilities::MANAGE,'mda-purchases',array(__CLASS__,'render_purchases'));
   add_submenu_page('mda-accounting','دریافت از مشتری','دریافت از مشتری',MDA_Capabilities::MANAGE,'mda-sales-receipts',array(__CLASS__,'render_sales_receipts'));
   add_submenu_page('mda-accounting','مرجوعی فروش و استرداد','مرجوعی فروش',MDA_Capabilities::MANAGE,'mda-sales-returns',array(__CLASS__,'render_sales_returns'));
+  add_submenu_page('mda-accounting','تطبیق سفارش‌های ووکامرس','تطبیق سفارش‌ها',MDA_Capabilities::MANAGE,'mda-reconciliation',array(__CLASS__,'render_reconciliation'));
  }
 
  public static function body_class(string $classes): string {
@@ -314,6 +316,27 @@ final class MDA_Admin {
   <h2 class="mda-section-title">فروش‌های قابل بررسی</h2><table class="widefat striped"><thead><tr><th>سند فروش</th><th>سفارش</th><th>مشتری</th><th>تاریخ</th><th>مبلغ</th><th>مرجوعی</th><th>عملیات</th></tr></thead><tbody><?php foreach($sales as $row): ?><tr><td><?php echo esc_html($row['document_number']); ?></td><td>#<?php echo (int)$row['order_id']; ?></td><td><?php echo esc_html($row['display_name']); ?></td><td><?php echo esc_html($row['document_date']); ?></td><td><?php echo esc_html($fmt($row['total_minor'])); ?></td><td><?php echo esc_html($fmt($row['returned_minor'])); ?></td><td><a href="<?php echo esc_url(add_query_arg(array('page'=>'mda-sales-returns','sale_id'=>(int)$row['id']),admin_url('admin.php'))); ?>">انتخاب فروش</a></td></tr><?php endforeach; ?><?php if(!$sales): ?><tr><td colspan="7">فروشی ثبت نشده است.</td></tr><?php endif; ?></tbody></table></div>
   <?php
  }
+ public static function run_woocommerce_reconciliation(): void {
+  self::guard();check_admin_referer('mda_run_woocommerce_reconciliation');
+  try{$result=MDA_Reconciliation_Service::run_batch(100);$url=add_query_arg(array('page'=>'mda-reconciliation','mda_notice'=>'reconciliation_run','queued'=>$result['queued'],'scanned'=>$result['scanned'],'pending'=>$result['pending'],'failed'=>$result['failed'],'skipped'=>$result['skipped']),admin_url('admin.php'));}
+  catch(Throwable $e){$url=add_query_arg(array('page'=>'mda-reconciliation','mda_error'=>rawurlencode($e->getMessage())),admin_url('admin.php'));}
+  wp_safe_redirect($url);exit;
+ }
+ public static function render_reconciliation(): void {
+  self::guard();if(!MDA_Database::is_available()){echo '<div class="wrap" dir="rtl"><h1>تطبیق سفارش‌های ووکامرس</h1><div class="notice notice-error"><p>PDO_SQLite فعال نیست.</p></div></div>';return;}
+  $state=MDA_Reconciliation_Service::state();$runs=MDA_Reconciliation_Service::runs(30);$latest=$runs[0]??null;
+  ?>
+  <div class="wrap" dir="rtl"><h1>تطبیق سفارش‌های ووکامرس</h1><p>این ابزار سفارش‌های ۹۰ روز اخیر با وضعیت در حال انجام/تکمیل‌شده را با اسناد و صف SQLite تطبیق می‌دهد. سفارش‌های موجود دوباره ثبت نمی‌شوند و رویدادهای ناموفق بدون بررسی دستی بازنویسی نمی‌شوند.</p><?php self::notices(); ?>
+  <?php if(!class_exists('WooCommerce')): ?><div class="notice notice-error"><p>برای اجرای تطبیق، WooCommerce باید فعال باشد.</p></div><?php else: ?>
+  <div class="mda-card" style="margin:16px 0"><div class="mda-page-toolbar"><div><h2 style="margin:0">اجرای تطبیق</h2><p>بازه بررسی: ۹۰ روز اخیر | اندازه هر دسته: ۱۰۰ سفارش | صفحه بعدی: <?php echo (int)$state['next_page']; ?></p></div>
+  <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>"><input type="hidden" name="action" value="mda_run_woocommerce_reconciliation"><?php wp_nonce_field('mda_run_woocommerce_reconciliation'); ?><button class="button button-primary" type="submit">اجرای دسته بعدی</button></form></div>
+  <div class="mda-grid"><div class="mda-card mda-stat"><span class="mda-stat-icon">🧭</span><div><small>آخرین صفحه بررسی‌شده</small><strong><?php echo (int)($latest['page_number']??0); ?></strong></div></div><div class="mda-card mda-stat"><span class="mda-stat-icon">📨</span><div><small>آخرین رویدادهای صف‌شده</small><strong><?php echo (int)($latest['queued_count']??0); ?></strong></div></div><div class="mda-card mda-stat"><span class="mda-stat-icon">⚠️</span><div><small>موارد نیازمند بررسی</small><strong><?php echo (int)($latest['failed_count']??0)+(int)($latest['skipped_count']??0); ?></strong></div></div></div></div>
+  <?php endif; ?>
+  <h2 class="mda-section-title">تاریخچه تطبیق</h2><table class="widefat striped"><thead><tr><th>زمان</th><th>صفحه</th><th>بررسی‌شده</th><th>ثبت‌شده</th><th>صف‌شده</th><th>در انتظار</th><th>ناموفق</th><th>ردشده</th><th>وضعیت / جزئیات</th></tr></thead><tbody>
+  <?php foreach($runs as $run): $errors=json_decode((string)$run['errors_json'],true); ?><tr><td><?php echo esc_html($run['created_at']); ?></td><td><?php echo (int)$run['page_number'].' / '.(int)$run['total_pages']; ?></td><td><?php echo (int)$run['scanned_count']; ?></td><td><?php echo (int)$run['already_posted_count']; ?></td><td><?php echo (int)$run['queued_count']; ?></td><td><?php echo (int)$run['pending_count']; ?></td><td><?php echo (int)$run['failed_count']; ?></td><td><?php echo (int)$run['skipped_count']; ?></td><td><span class="mda-chip"><?php echo esc_html($run['status']); ?></span><?php if(is_array($errors)&&$errors): ?><details><summary>مشاهده هشدارها (<?php echo count($errors); ?>)</summary><ul><?php foreach($errors as $error): ?><li>سفارش #<?php echo (int)($error['order_id']??0); ?>: <?php echo esc_html($error['reason']??''); ?></li><?php endforeach; ?></ul></details><?php endif; ?></td></tr><?php endforeach; ?>
+  <?php if(!$runs): ?><tr><td colspan="9">هنوز تطبیقی اجرا نشده است.</td></tr><?php endif; ?></tbody></table></div>
+  <?php
+ }
  public static function render_parties(): void {
   self::guard();if(!MDA_Database::is_available()){echo '<div class="wrap"><div class="notice notice-error"><p>برای مدیریت طرف‌حساب‌ها باید PDO_SQLite فعال باشد.</p></div></div>';return;}$edit=!empty($_GET['edit'])?MDA_Party_Service::get(absint($_GET['edit'])):null;$roles=array('customer'=>'مشتری','supplier'=>'تأمین‌کننده','employee'=>'کارمند','partner'=>'شریک','other'=>'سایر');$rows=MDA_Party_Service::search(sanitize_text_field(wp_unslash($_GET['s']??'')));
   ?>
@@ -396,7 +419,7 @@ final class MDA_Admin {
 
  private static function notices(): void {
   if(!empty($_GET['mda_notice'])) {
-   $messages=array('party_saved'=>'طرف‌حساب ذخیره شد.','party_archived'=>'طرف‌حساب بایگانی شد.','account_saved'=>'حساب ذخیره شد.','purchase_draft_created'=>'پیش‌نویس خرید ایجاد شد.','purchase_posted'=>'فاکتور قطعی و موجودی ثبت شد.','purchase_already_posted'=>'این فاکتور قبلاً قطعی شده است.','payment_recorded'=>'پرداخت مرحله‌ای ثبت شد.','payment_duplicate'=>'این پرداخت قبلاً ثبت شده است.','purchase_return_posted'=>'مرجوعی و سند اصلاحی ثبت شد.','sales_receipt_recorded'=>'دریافت مشتری و سند حسابداری ثبت شد.','sales_receipt_duplicate'=>'این دریافت قبلاً ثبت شده است.','sales_return_posted'=>'مرجوعی فروش و سند اصلاحی ثبت شد.','sales_return_duplicate'=>'این مرجوعی قبلاً ثبت شده است.','sales_refund_posted'=>'استرداد وجه و سند حسابداری ثبت شد.','sales_refund_duplicate'=>'این استرداد قبلاً ثبت شده است.');
+   $messages=array('party_saved'=>'طرف‌حساب ذخیره شد.','party_archived'=>'طرف‌حساب بایگانی شد.','account_saved'=>'حساب ذخیره شد.','purchase_draft_created'=>'پیش‌نویس خرید ایجاد شد.','purchase_posted'=>'فاکتور قطعی و موجودی ثبت شد.','purchase_already_posted'=>'این فاکتور قبلاً قطعی شده است.','payment_recorded'=>'پرداخت مرحله‌ای ثبت شد.','payment_duplicate'=>'این پرداخت قبلاً ثبت شده است.','purchase_return_posted'=>'مرجوعی و سند اصلاحی ثبت شد.','sales_receipt_recorded'=>'دریافت مشتری و سند حسابداری ثبت شد.','sales_receipt_duplicate'=>'این دریافت قبلاً ثبت شده است.','sales_return_posted'=>'مرجوعی فروش و سند اصلاحی ثبت شد.','sales_return_duplicate'=>'این مرجوعی قبلاً ثبت شده است.','sales_refund_posted'=>'استرداد وجه و سند حسابداری ثبت شد.','sales_refund_duplicate'=>'این استرداد قبلاً ثبت شده است.','reconciliation_run'=>'دسته تطبیق سفارش‌ها اجرا شد.');
    $key=sanitize_key(wp_unslash($_GET['mda_notice']));$message=$messages[$key]??'عملیات با موفقیت انجام شد.';
    echo '<div class="notice notice-success"><p>'.esc_html($message).'</p></div>';
   }
