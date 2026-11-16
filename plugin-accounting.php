@@ -6,6 +6,7 @@
  * Requires at least: 6.3
  * Requires PHP: 8.1
  * Requires Plugins: woocommerce
+ * Update URI: https://malidev.ir/
  * WC requires at least: 8.0
  * WC tested up to: 10.3
  * Author: MaliDev
@@ -17,19 +18,18 @@ define( 'MDA_VERSION', '0.18.0' );
 define( 'MDA_FILE', __FILE__ );
 define( 'MDA_PATH', plugin_dir_path( __FILE__ ) );
 define( 'MDA_URL', plugin_dir_url( __FILE__ ) );
-require_once MDA_PATH . 'includes/malidev-core/bootstrap.php';
-malidev_core_register_product(
+// MaliDev license + updates (malidev.ir), shared with every MaliDev product.
+require_once MDA_PATH . 'includes/malidev-client/loader.php';
+malidev_client_register(
 	array(
-		'slug'            => 'malidev-accounting',
-		'name'            => 'حسابداری فروشگاه',
-		'version'         => MDA_VERSION,
-		'file'            => __FILE__,
-		'license_product' => 'plugin-accounting',
-		'repository'      => 'alinaghyan/plugin-accounting',
-		'icon'            => MDA_URL . 'assets/icon/icon-animated.svg',
-		'settings_url'    => admin_url( 'admin.php?page=mda-accounting' ),
+		'slug'    => 'plugin-accounting',
+		'type'    => 'plugin',
+		'file'    => __FILE__,
+		'version' => MDA_VERSION,
+		'name'    => 'حسابداری فروشگاه',
 	)
 );
+require_once MDA_PATH . 'includes/core/class-menu.php';
 require_once MDA_PATH . 'includes/class-mda-database.php';
 require_once MDA_PATH . 'includes/class-mda-jalali.php';
 require_once MDA_PATH . 'includes/class-mda-settings.php';

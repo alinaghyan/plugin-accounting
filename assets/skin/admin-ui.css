@@ -1,0 +1,176 @@
+/* ==========================================================================
+   پوسته پنل مدیریت «افزونه‌های اختصاصی»
+   فونت وزیرمتن (داخلی)، بوت‌استرپ ۵ محدودشده به .wca-bs و jQuery وردپرس.
+   روی همه صفحه‌های زیر منوی «افزونه اختصاصی» (body.wca-skin) اعمال می‌شود.
+   ========================================================================== */
+@font-face{font-family:"Vazirmatn WCA";src:url("fonts/Vazirmatn-FD-Regular.woff2") format("woff2");font-weight:400;font-display:swap}
+@font-face{font-family:"Vazirmatn WCA";src:url("fonts/Vazirmatn-FD-Medium.woff2") format("woff2");font-weight:500 600;font-display:swap}
+@font-face{font-family:"Vazirmatn WCA";src:url("fonts/Vazirmatn-FD-Bold.woff2") format("woff2");font-weight:700 900;font-display:swap}
+
+body.wca-skin{
+	--wca-accent:#8f1748;
+	--wca-accent-2:#c2185b;
+	--wca-accent-dark:#6d1036;
+	--wca-accent-soft:#fbeef4;
+	--wca-accent-rgb:143,23,72;
+	--wca-text:#1f1d2b;
+	--wca-muted:#6b6880;
+	--wca-border:#ebe8f0;
+	--wca-surface:#fff;
+	--wca-bg:#f5f4f8;
+	--wca-radius:18px;
+	--wca-success:#12805c;
+	--wca-success-soft:#e7f7ef;
+	--wca-warning:#b45309;
+	--wca-warning-soft:#fff5e5;
+	--wca-danger:#c0262d;
+	--wca-danger-soft:#fdeced;
+	--wca-font:"Vazirmatn WCA",Tahoma,sans-serif;
+	--bs-body-font-family:var(--wca-font);
+	--bs-primary:var(--wca-accent);
+	--bs-primary-rgb:var(--wca-accent-rgb);
+	--bs-link-color:var(--wca-accent);
+	--bs-border-radius:12px;
+	background:var(--wca-bg);
+}
+body.wca-skin #wpcontent,body.wca-skin #wpbody{background:var(--wca-bg)}
+body.wca-skin #wpbody-content,
+body.wca-skin #wpbody-content input,
+body.wca-skin #wpbody-content select,
+body.wca-skin #wpbody-content textarea,
+body.wca-skin #wpbody-content button,
+body.wca-skin #wpbody-content .button,
+body.wca-skin #wpbody-content h1,
+body.wca-skin #wpbody-content h2,
+body.wca-skin #wpbody-content h3,
+body.wca-skin #wpbody-content th,
+body.wca-skin #wpbody-content td,
+body.wca-skin #wpbody-content p,
+body.wca-skin #wpbody-content label,
+body.wca-skin #wpbody-content .notice{font-family:var(--wca-font)!important}
+body.wca-skin #wpbody-content{font-size:13.5px;line-height:1.9;color:var(--wca-text)}
+body.wca-skin .wca-bs{background:transparent;color:var(--wca-text);font-size:inherit;line-height:inherit}
+body.wca-skin .wrap{max-width:1320px;margin:22px 20px 40px 22px;direction:rtl}
+
+/* ---------- سربرگ ---------- */
+body.wca-skin .wrap > h1,body.wca-skin .wrap > h1.wp-heading-inline{display:flex;align-items:center;gap:.75rem;margin:0 0 1rem;padding:1.25rem 1.4rem;border-radius:var(--wca-radius);background:linear-gradient(120deg,var(--wca-accent-dark),var(--wca-accent) 55%,var(--wca-accent-2));color:#fff;font-size:1.25rem;font-weight:800;line-height:1.6;box-shadow:0 18px 40px -26px rgba(var(--wca-accent-rgb),.9)}
+.wca-header{position:relative;display:flex;align-items:center;gap:1rem;margin:0 0 .9rem;padding:1.35rem 1.5rem;border:0;border-radius:var(--wca-radius);background:linear-gradient(120deg,var(--wca-accent-dark),var(--wca-accent) 55%,var(--wca-accent-2));color:#fff;overflow:hidden;box-shadow:0 18px 40px -26px rgba(var(--wca-accent-rgb),.9)}
+.wca-header::after{content:"";position:absolute;inset-inline-end:-60px;top:-80px;width:240px;height:240px;border-radius:50%;background:rgba(255,255,255,.08)}
+.wca-header__icon.dashicons{flex:0 0 auto;width:56px;height:56px;font-size:28px;line-height:56px;text-align:center;color:#fff;background:rgba(255,255,255,.16);border-radius:16px}
+.wca-header__text{flex:1 1 auto;min-width:0;position:relative;z-index:1}
+.wca-wrap .wca-header h1{margin:0;padding:0;color:#fff;font-size:1.3rem;font-weight:800;line-height:1.6}
+.wca-header p{margin:.15rem 0 0;color:rgba(255,255,255,.82);font-size:.92em}
+.wca-header__meta{position:relative;z-index:1;display:flex;flex-wrap:wrap;gap:.5rem;align-items:center}
+.wca-header .wca-badge{background:rgba(255,255,255,.18);color:#fff}
+.wca-header .wca-badge--warning{background:#ffd27a;color:#5a3500}
+.wca-wrap > .wp-header-end{margin:0;border:0}
+
+/* ---------- تب‌ها ---------- */
+.wca-tabs,body.wca-skin .nav-tab-wrapper{display:flex;flex-wrap:wrap;gap:.35rem;margin:0 0 1rem!important;padding:.4rem!important;border:1px solid var(--wca-border)!important;border-radius:16px;background:var(--wca-surface)}
+.wca-tab,body.wca-skin .nav-tab{display:inline-flex;align-items:center;gap:.4rem;margin:0!important;padding:.55rem 1rem!important;border:0!important;border-radius:12px;background:transparent!important;color:var(--wca-muted)!important;font-weight:600;font-size:.92em!important;line-height:1.7!important;text-decoration:none;transition:background .15s,color .15s}
+.wca-tab:hover,body.wca-skin .nav-tab:hover{background:var(--wca-bg)!important;color:var(--wca-accent)!important}
+.wca-tab.is-active,body.wca-skin .nav-tab-active,body.wca-skin .nav-tab-active:hover{background:var(--wca-accent-soft)!important;color:var(--wca-accent)!important;box-shadow:inset 0 0 0 1px rgba(var(--wca-accent-rgb),.15)}
+.wca-tab .dashicons{font-size:18px;width:18px;height:18px}
+.wca-tab:focus,body.wca-skin .nav-tab:focus{box-shadow:0 0 0 3px rgba(var(--wca-accent-rgb),.2);outline:0}
+
+/* ---------- کارت‌ها و پنل ---------- */
+/* وردپرس برای .card حداکثر عرض ۵۲۰px، فاصله و padding می‌گذارد؛ کارت‌های بوت‌استرپ باید تمام‌عرض باشند. */
+body.wca-skin .wca-bs .card{max-width:none;min-width:0;margin-top:0;padding:0}
+.wca-panel{display:flex;flex-direction:column;gap:1rem}
+.wca-panel > .notice,.wca-panel > div.updated,.wca-panel > div.error{margin:0}
+.wca-card,body.wca-skin .wrap .postbox{padding:1.25rem 1.4rem;border:1px solid var(--wca-border);border-radius:var(--wca-radius);background:var(--wca-surface);box-shadow:0 1px 2px rgba(20,10,40,.03),0 14px 30px -26px rgba(20,10,40,.35)}
+.wca-card > :first-child{margin-top:0}
+.wca-card > :last-child{margin-bottom:0}
+.wca-card__title,.wca-card h2,body.wca-skin .wrap h2{position:relative;display:flex;align-items:center;gap:.5rem;margin:0 0 1rem;padding:0;padding-inline-start:.85rem;font-size:1.05rem;font-weight:800;color:var(--wca-text)}
+.wca-card__title::before,.wca-card h2::before,body.wca-skin .wrap h2::before{content:"";position:absolute;inset-inline-start:0;top:.25em;bottom:.25em;width:4px;border-radius:4px;background:linear-gradient(var(--wca-accent),var(--wca-accent-2))}
+.wca-card h3,body.wca-skin .wrap h3{margin:1rem 0 .5rem;font-size:.98rem;font-weight:700}
+.wca-muted,body.wca-skin .wrap .description{color:var(--wca-muted)!important;font-size:.9em}
+.wca-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:1rem}
+.wca-grid > .wca-card{margin:0}
+.wca-grid--2{grid-template-columns:repeat(auto-fit,minmax(340px,1fr))}
+.wca-grid--4{grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
+.wca-grid--plugins{grid-template-columns:repeat(auto-fill,minmax(290px,1fr))}
+.wca-stat{display:flex;flex-direction:column;gap:.15rem}
+.wca-stat small{color:var(--wca-muted)}
+.wca-stat strong{font-size:1.5rem;font-weight:900;color:var(--wca-text)}
+.wca-plugin-card{display:flex;flex-direction:column;gap:.6rem;transition:transform .2s,box-shadow .2s}
+.wca-plugin-card:hover{transform:translateY(-3px);box-shadow:0 22px 40px -26px rgba(var(--wca-accent-rgb),.6)}
+.wca-plugin-card__head{display:flex;align-items:center;gap:.75rem}
+.wca-plugin-card__head .dashicons{width:48px;height:48px;font-size:24px;line-height:48px;text-align:center;border-radius:14px;color:var(--wca-accent);background:var(--wca-accent-soft)}
+.wca-plugin-card__head h2{margin:0!important;padding:0!important;font-size:1rem!important}
+.wca-plugin-card__head h2::before{display:none}
+.wca-plugin-card__foot{display:flex;flex-wrap:wrap;align-items:center;gap:.5rem;margin-top:auto;padding-top:.75rem;border-top:1px dashed var(--wca-border)}
+.wca-plugin-card__foot .button{margin-inline-start:auto!important}
+
+/* ---------- برچسب و هشدار ---------- */
+.wca-badge{display:inline-flex;align-items:center;gap:.25rem;padding:.15rem .7rem;border-radius:999px;background:var(--wca-bg);color:var(--wca-muted);font-size:.78em;font-weight:700;line-height:1.8;text-decoration:none}
+.wca-badge--success{background:var(--wca-success-soft);color:var(--wca-success)}
+.wca-badge--warning{background:var(--wca-warning-soft);color:var(--wca-warning)}
+.wca-badge--danger{background:var(--wca-danger-soft);color:var(--wca-danger)}
+.wca-alert{padding:.85rem 1.1rem;border-radius:14px;background:var(--wca-bg);border-inline-start:4px solid var(--wca-muted)}
+.wca-alert--error{background:var(--wca-danger-soft);border-color:var(--wca-danger);color:#7f1d1d}
+.wca-alert--success{background:var(--wca-success-soft);border-color:var(--wca-success);color:#0b5a40}
+.wca-alert--warning{background:var(--wca-warning-soft);border-color:var(--wca-warning);color:#7a3d06}
+body.wca-skin #wpbody-content .notice,body.wca-skin #wpbody-content div.updated,body.wca-skin #wpbody-content div.error{margin:0 0 1rem;padding:.65rem 1rem;border:0;border-inline-start:4px solid #72aee6;border-radius:14px;background:var(--wca-surface);box-shadow:0 10px 24px -20px rgba(20,10,40,.4)}
+body.wca-skin #wpbody-content .notice-success,body.wca-skin #wpbody-content div.updated{border-color:var(--wca-success)}
+body.wca-skin #wpbody-content .notice-error,body.wca-skin #wpbody-content div.error{border-color:var(--wca-danger)}
+body.wca-skin #wpbody-content .notice-warning{border-color:#f0a400}
+body.wca-skin #wpbody-content .notice p{margin:.3em 0}
+
+/* ---------- فرم‌ها ---------- */
+body.wca-skin .wrap .form-table{margin:0;border-collapse:separate;border-spacing:0}
+body.wca-skin .wrap .form-table tr{border-bottom:1px dashed var(--wca-border)}
+body.wca-skin .wrap .form-table th{width:230px;padding:1.05rem 0 1.05rem 1rem;color:var(--wca-text);font-weight:700;font-size:.92em;vertical-align:top}
+body.wca-skin .wrap .form-table td{padding:.85rem 0}
+body.wca-skin .wrap .form-table td p.description{margin-top:.4rem}
+body.wca-skin .wrap form > .form-table,body.wca-skin .wrap form > h2 + .form-table,body.wca-skin .wrap form > h2 + p + .form-table{padding:.25rem 1.4rem;border:1px solid var(--wca-border);border-radius:var(--wca-radius);background:var(--wca-surface)}
+body.wca-skin .wrap form > h2{margin-top:1.25rem}
+body.wca-skin .wrap input[type=text],body.wca-skin .wrap input[type=password],body.wca-skin .wrap input[type=url],body.wca-skin .wrap input[type=email],body.wca-skin .wrap input[type=number],body.wca-skin .wrap input[type=tel],body.wca-skin .wrap input[type=search],body.wca-skin .wrap select,body.wca-skin .wrap textarea{min-height:42px;padding:.35rem .85rem;border:1.5px solid #e2dfe9;border-radius:12px;background:#fbfaff;color:var(--wca-text);font-size:13.5px;line-height:1.8;box-shadow:none;transition:border-color .15s,box-shadow .15s,background .15s}
+body.wca-skin .wrap select{padding-inline-end:2rem;background-position:left .6rem center}
+body.wca-skin .wrap textarea{min-height:110px}
+body.wca-skin .wrap input:focus,body.wca-skin .wrap select:focus,body.wca-skin .wrap textarea:focus{border-color:var(--wca-accent);background:#fff;box-shadow:0 0 0 4px rgba(var(--wca-accent-rgb),.12);outline:0}
+body.wca-skin .wrap input[type=checkbox],body.wca-skin .wrap input[type=radio]{width:18px;height:18px;border:1.5px solid #cfcadb;accent-color:var(--wca-accent)}
+body.wca-skin .wrap input[type=checkbox]:checked{background:var(--wca-accent);border-color:var(--wca-accent)}
+body.wca-skin .wrap input[type=checkbox]:checked::before{filter:brightness(10)}
+body.wca-skin .wrap input[type=radio]:checked::before{background:var(--wca-accent)}
+.wca-field{display:flex;flex-direction:column;gap:.35rem;margin-bottom:.9rem}
+.wca-field label{font-weight:700}
+.wca-actions,body.wca-skin .wrap p.submit{display:flex;flex-wrap:wrap;align-items:center;gap:.5rem;margin:1rem 0 0;padding:0}
+
+/* ---------- دکمه‌ها ---------- */
+body.wca-skin .wrap .button,body.wca-skin .wrap .page-title-action{display:inline-flex;align-items:center;justify-content:center;gap:.35rem;min-height:40px;padding:0 1.1rem;border:1.5px solid #e2dfe9;border-radius:12px;background:#fff;color:var(--wca-text);font-weight:700;font-size:13px;line-height:1;text-decoration:none;box-shadow:none;transition:all .15s}
+body.wca-skin .wrap .button:hover,body.wca-skin .wrap .page-title-action:hover{border-color:var(--wca-accent);color:var(--wca-accent);background:#fff}
+body.wca-skin .wrap .button .dashicons{font-size:17px;width:17px;height:17px;line-height:1}
+body.wca-skin .wrap .button-primary{border:0;background:linear-gradient(120deg,var(--wca-accent),var(--wca-accent-2));color:#fff;box-shadow:0 10px 20px -12px rgba(var(--wca-accent-rgb),.9)}
+body.wca-skin .wrap .button-primary:hover,body.wca-skin .wrap .button-primary:focus{background:linear-gradient(120deg,var(--wca-accent-dark),var(--wca-accent));color:#fff;filter:brightness(1.05)}
+body.wca-skin .wrap .button:focus{box-shadow:0 0 0 3px rgba(var(--wca-accent-rgb),.2);outline:0}
+body.wca-skin .wrap .button-link-delete,body.wca-skin .wrap .button.delete{color:var(--wca-danger)}
+body.wca-skin .wrap .button[disabled],body.wca-skin .wrap .button:disabled{opacity:.55}
+body.wca-skin .wrap .button.is-busy{position:relative;color:transparent!important;pointer-events:none}
+body.wca-skin .wrap .button.is-busy::after{content:"";position:absolute;width:16px;height:16px;border:2px solid rgba(0,0,0,.2);border-top-color:var(--wca-accent);border-radius:50%;animation:wca-spin .7s linear infinite}
+body.wca-skin .wrap .button-primary.is-busy::after{border-color:rgba(255,255,255,.4);border-top-color:#fff}
+@keyframes wca-spin{to{transform:rotate(360deg)}}
+
+/* ---------- جدول‌ها ---------- */
+body.wca-skin .wrap .widefat{border:1px solid var(--wca-border);border-radius:var(--wca-radius);overflow:hidden;border-collapse:separate;border-spacing:0;box-shadow:none}
+body.wca-skin .wrap .widefat thead th,body.wca-skin .wrap .widefat thead td,body.wca-skin .wrap .widefat tfoot th{padding:.75rem 1rem;border-bottom:1px solid var(--wca-border);background:#faf9fc;color:var(--wca-muted);font-weight:700;font-size:.85em}
+body.wca-skin .wrap .widefat td,body.wca-skin .wrap .widefat tbody th{padding:.75rem 1rem;border-bottom:1px solid #f3f1f7;vertical-align:middle}
+body.wca-skin .wrap .widefat tbody tr:last-child td{border-bottom:0}
+body.wca-skin .wrap .widefat tbody tr:hover td{background:#fcfbfe}
+body.wca-skin .wrap .striped > tbody > :nth-child(odd){background:transparent}
+.wca-kv{display:grid;grid-template-columns:auto 1fr;gap:.35rem 1rem;margin:0}
+.wca-kv dt{color:var(--wca-muted)}
+.wca-kv dd{margin:0;font-weight:700}
+.wca-wrap code,body.wca-skin .wrap code{padding:.15rem .45rem;border-radius:8px;background:#f3f1f7;color:var(--wca-accent-dark);font-size:.88em;direction:ltr;unicode-bidi:embed}
+.wca-changelog{max-height:320px;overflow:auto;padding:1rem;border-radius:14px;background:var(--wca-bg)}
+
+/* ---------- toast ---------- */
+.wca-toast{position:fixed;bottom:24px;left:24px;z-index:99999;display:flex;align-items:center;gap:.5rem;padding:.75rem 1.1rem;border-radius:14px;background:#1f1d2b;color:#fff;font-family:var(--wca-font);font-size:13px;box-shadow:0 18px 40px -16px rgba(0,0,0,.5);opacity:0;transform:translateY(10px);transition:.25s}
+.wca-toast.is-on{opacity:1;transform:none}
+
+@media (max-width:782px){
+	body.wca-skin .wrap{margin:12px 10px 30px}
+	.wca-header{flex-wrap:wrap;padding:1.1rem}
+	body.wca-skin .wrap .form-table th{width:auto;padding:1rem 0 .25rem}
+	body.wca-skin .wrap form > .form-table{padding:.25rem 1rem}
+}

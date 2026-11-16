@@ -42,17 +42,20 @@ final class MDA_Admin {
 
  public static function body_class(string $classes): string {
   $screen=function_exists('get_current_screen')?get_current_screen():null;
-  if($screen && (strpos((string)$screen->id,'mda-')!==false || strpos((string)$screen->id,'mda_accounting')!==false))$classes.=' mda-admin';
+  if($screen && (strpos((string)$screen->id,'mda-')!==false || strpos((string)$screen->id,'mda_accounting')!==false))$classes.=' wca-skin mda-admin';
   return $classes;
  }
  public static function enqueue_assets(string $hook): void {
   $screen=function_exists('get_current_screen')?get_current_screen():null;
   if(!$screen || (strpos((string)$screen->id,'mda-')===false && strpos((string)$screen->id,'mda_accounting')===false))return;
   $base=MDA_PATH.'assets/';
-  wp_enqueue_style('mda-bootstrap-rtl',MDA_URL.'assets/vendor/bootstrap/bootstrap.rtl.scoped.min.css',array(),MDA_VERSION);
-  wp_enqueue_style('mda-admin',MDA_URL.'assets/css/admin.css',array('mda-bootstrap-rtl'),(string)filemtime($base.'css/admin.css'));
-  wp_enqueue_script('mda-bootstrap',MDA_URL.'assets/vendor/bootstrap/bootstrap.bundle.min.js',array(),MDA_VERSION,true);
-  wp_enqueue_script('mda-admin',MDA_URL.'assets/js/admin.js',array('mda-bootstrap'),(string)filemtime($base.'js/admin.js'),true);
+  $skin=MDA_URL.'assets/skin/';
+  wp_enqueue_style('woocamers-bootstrap',$skin.'vendor/bootstrap.scoped.rtl.min.css',array(),'5.3.8');
+  wp_enqueue_style('woocamers-admin-ui',$skin.'admin-ui.css',array('woocamers-bootstrap'),MDA_VERSION);
+  wp_enqueue_script('woocamers-bootstrap',$skin.'vendor/bootstrap.bundle.min.js',array(),'5.3.8',true);
+  wp_enqueue_script('woocamers-admin-ui',$skin.'admin-ui.js',array('jquery','woocamers-bootstrap'),MDA_VERSION,true);
+  wp_enqueue_style('mda-admin',MDA_URL.'assets/css/admin.css',array('woocamers-admin-ui'),(string)filemtime($base.'css/admin.css'));
+  wp_enqueue_script('mda-admin',MDA_URL.'assets/js/admin.js',array('jquery','woocamers-admin-ui'),(string)filemtime($base.'js/admin.js'),true);
   wp_enqueue_script('mda-jalali',MDA_URL.'assets/js/mda-jalali.js',array('mda-admin'),(string)filemtime($base.'js/mda-jalali.js'),true);
   $jalali=1;try{$jalali=(int)MDA_Settings::get('jalali_dates');}catch(Throwable $e){}
   wp_add_inline_script('mda-jalali','window.mdaSettings='.wp_json_encode(array('jalali'=>$jalali)).';','before');

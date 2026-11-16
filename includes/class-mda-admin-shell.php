@@ -62,16 +62,37 @@ final class MDA_Admin_Shell {
 
 	public static function init(): void {
 		add_action( 'admin_menu', array( __CLASS__, 'register_home' ), 9 );
+		add_filter( 'woocamers_custom_plugins', array( __CLASS__, 'register_card' ) );
 		add_filter( 'parent_file', array( __CLASS__, 'parent_file' ) );
 		add_filter( 'submenu_file', array( __CLASS__, 'submenu_file' ), 10, 2 );
 		add_action( 'all_admin_notices', array( __CLASS__, 'render_nav' ), 1 );
 	}
 
 	public static function parent(): string {
-		return class_exists( 'MaliDev_Core' ) ? MaliDev_Core::parent_slug() : 'malidev-plugins';
+		return \MDA\Core\Menu::PARENT_SLUG;
+	}
+
+	/**
+	 * Card on the shared «افزونه اختصاصی» hub (same registry the other MaliDev plugins use).
+	 */
+	public static function register_card( $plugins ) {
+		$plugins = is_array( $plugins ) ? $plugins : array();
+		if ( ! current_user_can( MDA_Capabilities::for_page( self::HOME ) ) ) {
+			return $plugins;
+		}
+		$plugins[ self::HOME ] = array(
+			'name'        => 'حسابداری فروشگاه',
+			'description' => 'حسابداری کامل فروشگاه ووکامرس: خرید و فروش، انبار، قیمت‌ها، خزانه، چک، اسناد و گزارش‌های مالی.',
+			'version'     => MDA_VERSION,
+			'icon'        => 'dashicons-calculator',
+			'url'         => admin_url( 'admin.php?page=' . self::HOME ),
+			'malidev'     => 'plugin-accounting',
+		);
+		return $plugins;
 	}
 
 	public static function register_home(): void {
+		\MDA\Core\Menu::ensure_parent();
 		add_submenu_page( self::parent(), 'حسابداری فروشگاه', 'حسابداری', MDA_Capabilities::for_page( self::HOME ), self::HOME, array( 'MDA_Admin', 'render' ) );
 	}
 
