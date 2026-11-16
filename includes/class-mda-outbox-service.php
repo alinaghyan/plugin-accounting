@@ -6,7 +6,6 @@ final class MDA_Outbox_Service {
  public static function enqueue_order($order): void {
   if(!$order||!is_object($order)||!method_exists($order,'get_id'))return;
   $status=$order->get_status();if(!in_array($status,array('processing','completed'),true))return;
-  if((float)$order->get_total_refunded()>0)throw new RuntimeException('سفارش دارای استرداد قبلی است؛ ابتدا باید گردش مرجوعی تعریف شود.');
   $currency=strtoupper((string)$order->get_currency());if(!in_array($currency,array('IRR','IRT'),true))throw new RuntimeException('در این نسخه فروش فقط با واحد پول IRR یا IRT پشتیبانی می‌شود.');
   $warehouse=(int)$order->get_meta('_mda_sales_warehouse_id',true);
   if($warehouse<1){$q=MDA_Database::connection()->query("SELECT id FROM mda_warehouses WHERE warehouse_code='MAIN' AND is_active=1 LIMIT 1");$warehouse=(int)$q->fetchColumn();}
@@ -38,6 +37,12 @@ final class MDA_Outbox_Service {
   $q->execute(array(':key'=>$key,':id'=>(string)$orderId,':payload'=>$json,':now'=>$now));
   if(!wp_next_scheduled('mda_process_outbox_batch'))wp_schedule_single_event(time()+5,'mda_process_outbox_batch');
  }
+ private static function order_was_cancelled(int $orderId): bool {
+  if($orderId<1||!function_exists('wc_get_order'))return false;
+  $order=wc_get_order($orderId);if(!$order)return false;
+  if(!in_array($order->get_status(),array('cancelled','failed'),true))return false;
+  $db=MDA_Database::connection();$q=$db->prepare("SELECT 1 FROM mda_sales_documents WHERE order_id=:o");$q->execute(array(':o'=>$orderId));return !$q->fetchColumn();
+ }
  public static function process_batch(int $limit=10): array {
   $db=MDA_Database::connection();$now=gmdate('Y-m-d H:i:s');
   // Recover workers that died after claiming an event.
@@ -50,7 +55,8 @@ final class MDA_Outbox_Service {
    try{
     $payload=json_decode((string)$event['payload_json'],true);
     if(!is_array($payload))throw new RuntimeException('محتوای رویداد outbox قابل خواندن نیست.');
-    if($event['event_type']==='sale.post')MDA_Sales_Service::post_order_payload($payload);
+    if($event['event_type']==='sale.post'){if(self::order_was_cancelled((int)($payload['order_id']??0))){$db->prepare("UPDATE mda_integration_outbox SET status='completed',processed_at=:now,locked_at=NULL,last_error=:note WHERE id=:id")->execute(array(':now'=>gmdate('Y-m-d H:i:s'),':note'=>'سفارش پیش از ثبت حسابداری لغو شد؛ فروشی ثبت نشد.',':id'=>$event['id']));$results[]=array('id'=>(int)$event['id'],'status'=>'skipped');continue;}MDA_Sales_Service::post_order_payload($payload);}
+    elseif($event['event_type']==='order.adjust')MDA_Order_Adjustment_Service::process($payload);
     elseif($event['event_type']==='gateway.capture'){
      $sale=$db->prepare("SELECT id FROM mda_sales_documents WHERE order_id=:order AND status='posted'");$sale->execute(array(':order'=>(int)$payload['order_id']));
      if(!$sale->fetchColumn()){$saleEvent=$db->prepare("SELECT payload_json FROM mda_integration_outbox WHERE event_key=:key AND event_type='sale.post'");$saleEvent->execute(array(':key'=>'wc-sale-'.(int)$payload['order_id'].'-v1'));$salePayload=json_decode((string)$saleEvent->fetchColumn(),true);if(!is_array($salePayload))throw new RuntimeException('رویداد فروش سفارش هنوز در صف ثبت نشده است.');MDA_Sales_Service::post_order_payload($salePayload);}

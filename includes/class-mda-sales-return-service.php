@@ -30,14 +30,22 @@ final class MDA_Sales_Return_Service {
     $revRemaining=(int)$original['revenue_minor']-(int)$prior['revenue'];$taxRemaining=(int)$original['tax_minor']-(int)$prior['tax'];$cogsRemaining=(int)$original['cogs_minor']-(int)$prior['cogs'];
     $revenue=$qty===$remaining?$revRemaining:min($revRemaining,self::mulDivRound($qty,(int)$original['revenue_minor'],(int)$original['quantity_scaled']));
     $tax=$qty===$remaining?$taxRemaining:min($taxRemaining,self::mulDivRound($qty,(int)$original['tax_minor'],(int)$original['quantity_scaled']));
-    $cogs=$qty===$remaining?$cogsRemaining:min($cogsRemaining,self::mulDivRound($qty,(int)$original['cogs_minor'],(int)$original['quantity_scaled']));
-    $scale=(int)$original['quantity_scale'];$stock->execute(array(':product'=>$original['product_id'],':variation'=>$original['variation_id'],':warehouse'=>$sale['warehouse_id']));$stockRow=$stock->fetch();$balance=(int)$stockRow['qty'];
+    $bo=$db->prepare('SELECT b.id,b.open_scaled,COALESCE((SELECT SUM(f.quantity_scaled) FROM mda_backorder_fulfilments f WHERE f.backorder_line_id=b.id AND f.source_type=\'cancel\'),0) cancelled,COALESCE((SELECT SUM(f.cogs_minor) FROM mda_backorder_fulfilments f WHERE f.backorder_line_id=b.id AND f.source_type<>\'cancel\'),0) fulfilled_cogs FROM mda_backorder_open b WHERE b.sales_line_id=:line');
+    $bo->execute(array(':line'=>$original['id']));$boRow=$bo->fetch();$openBo=$boRow?(int)$boRow['open_scaled']:0;$cancelledBo=$boRow?(int)$boRow['cancelled']:0;
+    $fromBackorder=min($qty,$openBo);$toStock=$qty-$fromBackorder;
+    $issuedQty=(int)$original['quantity_scaled']-$openBo-$cancelledBo;$issuedCogs=self::safeAdd((int)$original['cogs_minor'],$boRow?(int)$boRow['fulfilled_cogs']:0);
+    $remainingIssued=$issuedQty-((int)$prior['qty']-$cancelledBo);$cogsLeft=$issuedCogs-(int)$prior['cogs'];
+    $cogs=$toStock<1?0:($toStock>=$remainingIssued?$cogsLeft:min($cogsLeft,self::mulDivRound($toStock,$issuedCogs,max(1,$issuedQty))));
+    $scale=(int)$original['quantity_scale'];$newQty=0;$newAverage=0;
+    if($toStock>0){
+    $stock->execute(array(':product'=>$original['product_id'],':variation'=>$original['variation_id'],':warehouse'=>$sale['warehouse_id']));$stockRow=$stock->fetch();$balance=(int)$stockRow['qty'];
     $state->execute(array(':product'=>$original['product_id'],':variation'=>$original['variation_id'],':warehouse'=>$sale['warehouse_id']));$cost=$state->fetch();
     if(!$cost||(int)$cost['quantity_scale']!==$scale||(int)$stockRow['scales']!==1||(int)$cost['quantity_scaled']!==$balance||$cost['currency_code']!==$sale['currency_code'])throw new RuntimeException('وضعیت کاردکس یا بهای تمام‌شده این کالا ناسازگار است؛ مرجوعی متوقف شد.');
-    if($qty>PHP_INT_MAX-$balance)throw new OverflowException('موجودی پس از مرجوعی از ظرفیت عددی بیشتر می‌شود.');
-    $newQty=$balance+$qty;$newAverage=self::weightedAverage($balance,(int)$cost['average_cost_minor'],$qty,(int)$original['unit_cost_minor']);
+    if($toStock>PHP_INT_MAX-$balance)throw new OverflowException('موجودی پس از مرجوعی از ظرفیت عددی بیشتر می‌شود.');
+    $newQty=$balance+$toStock;$newAverage=self::weightedAverage($balance,(int)$cost['average_cost_minor'],$toStock,(int)$original['unit_cost_minor']);
+    }
     $productTotal=self::safeAdd($productTotal,$revenue);$taxTotal=self::safeAdd($taxTotal,$tax);$cogsTotal=self::safeAdd($cogsTotal,$cogs);
-    $prepared[]=array('source'=>$original,'qty'=>$qty,'scale'=>$scale,'revenue'=>$revenue,'tax'=>$tax,'cogs'=>$cogs,'unit'=>(int)$original['unit_cost_minor'],'new_qty'=>$newQty,'new_average'=>$newAverage);
+    $prepared[]=array('source'=>$original,'qty'=>$qty,'to_stock'=>$toStock,'from_backorder'=>$fromBackorder,'backorder_id'=>$boRow?(int)$boRow['id']:0,'scale'=>$scale,'revenue'=>$revenue,'tax'=>$tax,'cogs'=>$cogs,'unit'=>(int)$original['unit_cost_minor'],'new_qty'=>$newQty,'new_average'=>$newAverage);
    }
    $total=self::safeAdd($productTotal,$taxTotal);if($total<1)throw new RuntimeException('مبلغ مرجوعی باید مثبت باشد.');
    $number='MDA-SRET-'.gmdate('Ymd').'-'.strtoupper(bin2hex(random_bytes(4)));
@@ -55,7 +63,9 @@ final class MDA_Sales_Return_Service {
    $movement=$db->prepare("INSERT INTO mda_inventory_movements (product_id,variation_id,warehouse_id,movement_type,quantity_scaled,quantity_scale,unit_cost_minor,currency_code,source_type,source_id,idempotency_key,occurred_at,created_by) VALUES (:product,:variation,:warehouse,'customer_return',:qty,:scale,:unit,:currency,'sales_return',:source,:key,:now,:user)");
    $update=$db->prepare('UPDATE mda_product_cost_state SET quantity_scaled=:qty,average_cost_minor=:average,updated_at=:now WHERE product_id=:product AND variation_id=:variation AND warehouse_id=:warehouse');
    foreach($prepared as $item){$line=$item['source'];$insert->execute(array(':return'=>$returnId,':line'=>$line['id'],':product'=>$line['product_id'],':variation'=>$line['variation_id'],':qty'=>$item['qty'],':scale'=>$item['scale'],':revenue'=>$item['revenue'],':tax'=>$item['tax'],':cogs'=>$item['cogs'],':unit'=>$item['unit'],':now'=>$now));
-    $movement->execute(array(':product'=>$line['product_id'],':variation'=>$line['variation_id'],':warehouse'=>$sale['warehouse_id'],':qty'=>$item['qty'],':scale'=>$item['scale'],':unit'=>$item['unit'],':currency'=>$sale['currency_code'],':source'=>(string)$returnId,':key'=>'customer-return-'.$returnId.'-'.$line['id'],':now'=>$now,':user'=>get_current_user_id()?:null));
+    if($item['from_backorder']>0)$db->prepare("INSERT INTO mda_backorder_fulfilments (backorder_line_id,source_type,source_id,quantity_scaled,unit_cost_minor,cogs_minor,accounting_document_id,idempotency_key,created_at) VALUES (:bo,'cancel',:src,:qty,0,0,NULL,:key,:now)")->execute(array(':bo'=>$item['backorder_id'],':src'=>(string)$returnId,':qty'=>$item['from_backorder'],':key'=>'backorder-cancel-'.$returnId.'-'.$line['id'],':now'=>$now));
+    if($item['to_stock']<1)continue;
+    $movement->execute(array(':product'=>$line['product_id'],':variation'=>$line['variation_id'],':warehouse'=>$sale['warehouse_id'],':qty'=>$item['to_stock'],':scale'=>$item['scale'],':unit'=>$item['unit'],':currency'=>$sale['currency_code'],':source'=>(string)$returnId,':key'=>'customer-return-'.$returnId.'-'.$line['id'],':now'=>$now,':user'=>get_current_user_id()?:null));
     $update->execute(array(':qty'=>$item['new_qty'],':average'=>$item['new_average'],':now'=>$now,':product'=>$line['product_id'],':variation'=>$line['variation_id'],':warehouse'=>$sale['warehouse_id']));if($update->rowCount()!==1)throw new RuntimeException('به‌روزرسانی میانگین موزون پس از مرجوعی انجام نشد.');
    }
    $db->prepare("INSERT INTO mda_audit_logs (user_id,action,object_type,object_id,after_json,created_at) VALUES (:user,'sales_return_posted','sales_return',:id,:json,:now)")->execute(array(':user'=>get_current_user_id()?:null,':id'=>(string)$returnId,':json'=>wp_json_encode(array('sale_id'=>$saleId,'total_minor'=>$total,'cogs_reversed_minor'=>$cogsTotal,'journal_id'=>$journalId)),':now'=>$now));

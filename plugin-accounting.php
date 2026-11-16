@@ -42,6 +42,8 @@ require_once MDA_PATH . 'includes/class-mda-cheque-service.php';
 require_once MDA_PATH . 'includes/class-mda-cheque-admin.php';
 require_once MDA_PATH . 'includes/class-mda-gateway-settlement-service.php';
 require_once MDA_PATH . 'includes/class-mda-gateway-admin.php';
+require_once MDA_PATH . 'includes/class-mda-order-adjustment-service.php';
+require_once MDA_PATH . 'includes/class-mda-product-fields.php';
 require_once MDA_PATH . 'includes/class-mda-woocommerce.php';
 require_once MDA_PATH . 'includes/class-mda-phone-sales-admin.php';
 require_once MDA_PATH . 'includes/class-mda-admin.php';

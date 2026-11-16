@@ -26,6 +26,7 @@ require_once dirname(__DIR__).'/includes/class-mda-report-service.php';
 require_once dirname(__DIR__).'/includes/class-mda-cash-service.php';
 require_once dirname(__DIR__).'/includes/class-mda-bank-reconciliation-service.php';
 class WooCommerce {}
+if(!defined('DAY_IN_SECONDS'))define('DAY_IN_SECONDS',86400);
 final class SmokeWCDate { public function date($format){return gmdate($format,strtotime('2026-11-16 10:00:00'));} }
 final class SmokeWCProduct { public static string $stock='8'; public static string $stockStatus='instock'; public function get_sku(){return 'T-502';} public function managing_stock(){return true;} public function get_manage_stock(){return true;} public function get_stock_quantity(){return self::$stock;} public function set_stock_quantity($value){self::$stock=(string)$value;} public function set_stock_status($value){self::$stockStatus=(string)$value;} public function save(){return 1;} }
 final class SmokeWCItem {
@@ -95,7 +96,10 @@ if($reconciliation['scanned']!==2||$reconciliation['already_posted']!==1||$recon
 if($db->query("SELECT status FROM mda_integration_outbox WHERE event_key='wc-sale-9002-v1'")->fetchColumn()!=='pending')throw new RuntimeException('Reconciliation did not create a pending outbox event.');
 if((int)$db->query('SELECT COUNT(*) FROM mda_reconciliation_runs')->fetchColumn()!==1)throw new RuntimeException('Reconciliation run audit record was not saved.');
 $stockBlocked=MDA_Stock_Sync_Service::run_batch($warehouse,100);
-if($stockBlocked['status']!=='blocked'||$stockBlocked['pending_events']<1)throw new RuntimeException('Stock sync was not blocked while an accounting outbox event was pending.');
+if($stockBlocked['pending_events']<1||$stockBlocked['synced']!==1||$stockBlocked['skipped']!==0)throw new RuntimeException('A pending event for another product must not block unrelated stock sync: '.wp_json_encode($stockBlocked));
+$db->prepare("INSERT INTO mda_integration_outbox (event_key,event_type,aggregate_type,aggregate_id,payload_json,status,attempts,available_at,created_at) VALUES ('test-pending-501','sale.post','woocommerce_order','9100',:p,'failed',3,:n,:n)")->execute(array(':p'=>wp_json_encode(array('order_id'=>9100,'items'=>array(array('product_id'=>501,'variation_id'=>0)))),':n'=>gmdate('Y-m-d H:i:s')));
+$stockSkipped=MDA_Stock_Sync_Service::run_batch($warehouse,100);
+if($stockSkipped['skipped']!==1||$stockSkipped['synced']!==0)throw new RuntimeException('Product with a pending accounting event was not skipped: '.wp_json_encode($stockSkipped));
 $changed=$payload;$changed['total_minor']=6601;$rejected=false;try{MDA_Sales_Service::post_order_payload($changed);}catch(RuntimeException $e){$rejected=true;}if(!$rejected)throw new RuntimeException('Changed payload reused the same idempotency key.');
 $cashIncome=(int)$db->query("SELECT id FROM mda_accounts WHERE account_code='4400'")->fetchColumn();
 $cashExpense=(int)$db->query("SELECT id FROM mda_accounts WHERE account_code='5210'")->fetchColumn();
