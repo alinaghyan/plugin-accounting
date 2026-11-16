@@ -34,12 +34,13 @@ final class MDA_Outbox_Service {
    $claim=$db->prepare("UPDATE mda_integration_outbox SET status='processing',locked_at=:now,last_attempt_at=:now,attempts=attempts+1 WHERE id=:id AND status IN ('pending','failed')");
    $claim->execute(array(':now'=>$now,':id'=>$event['id']));if($claim->rowCount()!==1)continue;
    try{
-    MDA_Database::transaction(static function(PDO $pdo) use($event):void {
-     $locked=$pdo->prepare("SELECT status FROM mda_integration_outbox WHERE id=:id");$locked->execute(array(':id'=>$event['id']));if($locked->fetchColumn()!=='processing')throw new RuntimeException('رویداد دیگر در اختیار این پردازشگر نیست.');
-     if($event['event_type']==='sale.post')MDA_Sales_Service::post_order_payload((array)json_decode($event['payload_json'],true));
-     else throw new RuntimeException('نوع رویداد outbox پشتیبانی نمی‌شود.');
-     $pdo->prepare("UPDATE mda_integration_outbox SET status='completed',processed_at=:now,locked_at=NULL,last_error=NULL WHERE id=:id")->execute(array(':now'=>gmdate('Y-m-d H:i:s'),':id'=>$event['id']));
-    });
+    $payload=json_decode((string)$event['payload_json'],true);
+    if(!is_array($payload))throw new RuntimeException('محتوای رویداد outbox قابل خواندن نیست.');
+    if($event['event_type']==='sale.post')MDA_Sales_Service::post_order_payload($payload);
+    else throw new RuntimeException('نوع رویداد outbox پشتیبانی نمی‌شود.');
+    // Posting is atomic inside MDA_Sales_Service. If the worker stops here,
+    // retry safely observes the same immutable sale via its unique order key.
+    $db->prepare("UPDATE mda_integration_outbox SET status='completed',processed_at=:now,locked_at=NULL,last_error=NULL WHERE id=:id AND status='processing'")->execute(array(':now'=>gmdate('Y-m-d H:i:s'),':id'=>$event['id']));
     $results[]=array('id'=>(int)$event['id'],'status'=>'completed');
    }catch(Throwable $e){
     $attempt=(int)$event['attempts']+1;$delay=min(86400,30*(2**min(10,$attempt-1)));$status=$attempt >= (int)$event['max_attempts']?'failed':'pending';
