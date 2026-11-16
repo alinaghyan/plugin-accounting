@@ -132,3 +132,6 @@ body.mda-admin .mda-chip{display:inline-block;padding:1px 8px;border-radius:999p
 .mda-history-modal__box{background:#fff;border-radius:18px;padding:22px;width:min(760px,92vw);max-height:80vh;overflow:auto;direction:rtl;position:relative;animation:mda-fade-up .3s both}
 .mda-history-close{position:absolute;top:10px;left:14px;border:0;background:none;font-size:26px;cursor:pointer;color:#6b6880}
 .mda-price-fields .form-field input,.mda-variation-prices input{direction:ltr}
+body.mda-admin .mda-pill{display:inline-block;padding:3px 12px;border-radius:999px;font-size:12px;background:#f1f5f9;color:#334155}
+body.mda-admin .mda-pill--ok{background:#dcfce7;color:#166534}
+body.mda-admin .mda-pill--warn{background:#fef3c7;color:#92400e}

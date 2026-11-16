@@ -2,7 +2,7 @@
 /**
  * Plugin Name: MaliDev Accounting & ERP
  * Description: هسته حسابداری و مدیریت عملیات فروشگاه ووکامرس با پایگاه داده اختصاصی SQLite.
- * Version: 0.19.0
+ * Version: 0.20.0
  * Requires at least: 6.3
  * Requires PHP: 8.1
  * Requires Plugins: woocommerce
@@ -14,7 +14,7 @@
  * Domain Path: /languages
  */
 defined( 'ABSPATH' ) || exit;
-define( 'MDA_VERSION', '0.19.0' );
+define( 'MDA_VERSION', '0.20.0' );
 define( 'MDA_FILE', __FILE__ );
 define( 'MDA_PATH', plugin_dir_path( __FILE__ ) );
 define( 'MDA_URL', plugin_dir_url( __FILE__ ) );
@@ -72,6 +72,13 @@ require_once MDA_PATH . 'includes/class-mda-admin-shell.php';
 require_once MDA_PATH . 'includes/class-mda-admin.php';
 require_once MDA_PATH . 'includes/class-mda-admin-pages.php';
 require_once MDA_PATH . 'includes/class-mda-price-admin.php';
+require_once MDA_PATH . 'includes/class-mda-product-grid-service.php';
+require_once MDA_PATH . 'includes/class-mda-product-grid.php';
+require_once MDA_PATH . 'includes/class-mda-price-message.php';
+require_once MDA_PATH . 'includes/identity/class-mda-shahkar.php';
+require_once MDA_PATH . 'includes/identity/class-mda-moodian.php';
+require_once MDA_PATH . 'includes/identity/class-mda-identity-admin.php';
+require_once MDA_PATH . 'includes/identity/functions.php';
 require_once MDA_PATH . 'includes/class-mda-plugin.php';
 register_activation_hook( __FILE__, array( 'MDA_Installer', 'activate' ) );
 register_deactivation_hook( __FILE__, array( 'MDA_Installer', 'deactivate' ) );
@@ -86,6 +93,9 @@ add_action('plugins_loaded',static function(): void {
  MDA_Admin_Shell::init();
  MDA_Admin_Pages::init();
  MDA_Price_Admin::init();
+ MDA_Product_Grid::init();
+ MDA_Price_Message::init();
+ MDA_Identity_Admin::init();
  MDA_Price_Frontend::init();
  MDA_Integrations::init();
  MDA_Backup_Service::init();

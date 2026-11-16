@@ -104,7 +104,7 @@ final class MDA_Price_Service {
 	 *
 	 * @param array<string,string> $changes field => new value ('' clears).
 	 */
-	public static function apply( WC_Product $product, array $changes, string $source = 'single' ): array {
+	public static function apply( WC_Product $product, array $changes, string $source = 'single', bool $save = true ): array {
 		$allowed = self::fields();
 		$done    = array();
 		foreach ( $changes as $field => $value ) {
@@ -139,7 +139,9 @@ final class MDA_Price_Service {
 		if ( '' !== $sale && $regular > 0 && (float) $sale >= $regular ) {
 			throw new InvalidArgumentException( 'قیمت ویژه «' . $product->get_name() . '» باید کمتر از قیمت فروش باشد.' );
 		}
-		$product->save();
+		if ( $save ) {
+			$product->save();
+		}
 		self::log_changes( (int) $product->get_id(), $done, $source );
 		return $done;
 	}

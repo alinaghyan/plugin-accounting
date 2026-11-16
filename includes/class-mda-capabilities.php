@@ -85,8 +85,11 @@ final class MDA_Capabilities {
 			'mda-bank-reconciliation' => self::CREATE_DOCUMENTS,
 			'mda-gateway-settlements' => self::CREATE_DOCUMENTS,
 		);
-		if ( 'mda-prices' === $slug ) {
+		if ( in_array( $slug, array( 'mda-prices', 'mda-products' ), true ) ) {
 			return 'edit_products';
+		}
+		if ( 'mda-identity' === $slug ) {
+			return 'manage_woocommerce';
 		}
 		return $map[ $slug ] ?? self::MANAGE;
 	}
