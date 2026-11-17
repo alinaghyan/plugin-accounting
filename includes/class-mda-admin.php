@@ -196,7 +196,8 @@ final class MDA_Admin {
    if(false===$amount||$amount<1)throw new InvalidArgumentException('مبلغ پرداخت باید عدد صحیح مثبت باشد.');
    $date=sanitize_text_field(wp_unslash($_POST['payment_date']??''));
    $method=sanitize_key(wp_unslash($_POST['payment_method']??'cash'));
-   $result=MDA_Purchase_Settlement_Service::record_payment($id,(int)$amount,absint($_POST['cash_account_id']??0),$method,'purchase-stage-payment-'.wp_generate_uuid4(),$date);
+   $requestKey=sanitize_text_field(wp_unslash($_POST['request_key']??''));if(!preg_match('/^[A-Za-z0-9._:-]{16,191}$/D',$requestKey))throw new InvalidArgumentException('کلید یکتای درخواست پرداخت معتبر نیست.');
+   $result=MDA_Purchase_Settlement_Service::record_payment($id,(int)$amount,absint($_POST['cash_account_id']??0),$method,'purchase-stage-payment-'.$requestKey,$date);
    $url=add_query_arg(array('page'=>'mda-purchases','purchase_id'=>$id,'mda_notice'=>$result['duplicate']?'payment_duplicate':'payment_recorded'),admin_url('admin.php'));
   } catch(Throwable $e) {$url=add_query_arg(array('page'=>'mda-purchases','purchase_id'=>$id,'mda_error'=>rawurlencode($e->getMessage())),admin_url('admin.php'));}
   wp_safe_redirect($url);exit;
@@ -209,8 +210,9 @@ final class MDA_Admin {
    foreach((array)$raw as $lineId=>$row){$quantity=trim((string)($row['quantity']??''));if(''===$quantity)continue;$lines[]=array('purchase_line_id'=>absint($lineId),'quantity_scaled'=>self::parse_quantity($quantity));}
    if(!$lines)throw new InvalidArgumentException('حداقل مقدار یک کالا برای مرجوعی را وارد کنید.');
    $date=sanitize_text_field(wp_unslash($_POST['return_date']??''));
-   $result=MDA_Purchase_Return_Service::post($id,$lines,'purchase-return-'.wp_generate_uuid4(),$date);
-   $url=add_query_arg(array('page'=>'mda-purchases','purchase_id'=>$id,'mda_notice'=>'purchase_return_posted','return_id'=>$result['return_id']),admin_url('admin.php'));
+   $requestKey=sanitize_text_field(wp_unslash($_POST['request_key']??''));if(!preg_match('/^[A-Za-z0-9._:-]{16,191}$/D',$requestKey))throw new InvalidArgumentException('کلید یکتای درخواست مرجوعی معتبر نیست.');
+   $result=MDA_Purchase_Return_Service::post($id,$lines,'purchase-return-'.$requestKey,$date);
+   $url=add_query_arg(array('page'=>'mda-purchases','purchase_id'=>$id,'mda_notice'=>$result['duplicate']?'purchase_return_duplicate':'purchase_return_posted','return_id'=>$result['return_id']),admin_url('admin.php'));
   } catch(Throwable $e) {$url=add_query_arg(array('page'=>'mda-purchases','purchase_id'=>$id,'mda_error'=>rawurlencode($e->getMessage())),admin_url('admin.php'));}
   wp_safe_redirect($url);exit;
  }
@@ -227,7 +229,7 @@ final class MDA_Admin {
   $db=MDA_Database::connection();
   $suppliers=$db->query("SELECT p.id,p.display_name,p.party_code FROM mda_parties p JOIN mda_party_roles r ON r.party_id=p.id AND r.role_key='supplier' WHERE p.is_active=1 AND p.archived_at IS NULL ORDER BY p.display_name")->fetchAll();
   $warehouses=MDA_Inventory_Service::warehouses();
-  $cash=$db->query("SELECT id,account_code,account_name FROM mda_accounts WHERE account_type='asset' AND is_control=0 AND is_active=1 AND archived_at IS NULL ORDER BY account_code")->fetchAll();
+  $cash=$db->query("SELECT id,account_code,account_name FROM mda_accounts WHERE account_code GLOB '11*' AND account_type='asset' AND is_control=0 AND allow_manual_entry=1 AND is_active=1 AND archived_at IS NULL ORDER BY account_code")->fetchAll();
   $rows=MDA_Purchase_Service::all(100);$purchaseId=absint($_GET['purchase_id']??0);$purchase=$purchaseId?MDA_Purchase_Service::get($purchaseId):null;
   $draft=$purchase&&'draft'===$purchase['document_status']?$purchase:null;
   $posted=$purchase&&'posted'===$purchase['document_status']?$purchase:null;
@@ -260,11 +262,11 @@ final class MDA_Admin {
   <?php $summary=MDA_Purchase_Settlement_Service::summary((int)$posted['id']);$payments=MDA_Purchase_Settlement_Service::payments((int)$posted['id']); ?>
   <div style="background:#fff;padding:18px;max-width:1150px;margin:16px 0"><h2>جزئیات فاکتور قطعی <?php echo esc_html($posted['document_number']); ?></h2>
   <p>تأمین‌کننده: <?php echo esc_html($posted['supplier_name']); ?> | انبار: <?php echo esc_html($posted['warehouse_name']); ?> | تاریخ: <?php echo esc_html($posted['document_date']); ?></p>
-  <p>مبلغ فاکتور: <strong><?php echo esc_html($fmt($summary['total_minor'])); ?> ریال</strong> | پرداخت‌شده: <?php echo esc_html($fmt($summary['paid_minor'])); ?> ریال | مانده: <strong><?php echo esc_html($fmt($summary['payable_minor'])); ?> ریال</strong></p>
+  <p>مبلغ فاکتور: <strong><?php echo esc_html($fmt($summary['total_minor'])); ?> ریال</strong> | پرداخت‌شده: <?php echo esc_html($fmt($summary['paid_minor'])); ?> ریال | مرجوع‌شده: <?php echo esc_html($fmt($summary['returned_minor'])); ?> ریال | مانده خالص: <strong><?php echo esc_html($fmt($summary['payable_minor'])); ?> ریال</strong><?php if($summary['payable_minor']<0): ?> (بستانکاری تأمین‌کننده)<?php endif; ?></p>
   <h3>سوابق پرداخت</h3><table class="widefat striped"><thead><tr><th>تاریخ</th><th>مبلغ (ریال)</th><th>حساب</th><th>روش</th><th>سند حسابداری</th></tr></thead><tbody>
   <?php foreach($payments as $payment): ?><tr><td><?php echo esc_html(substr((string)$payment['paid_at'],0,10)); ?></td><td><?php echo esc_html($fmt($payment['amount_minor'])); ?></td><td><?php echo esc_html($payment['account_code'].' — '.$payment['account_name']); ?></td><td><?php echo esc_html(array('cash'=>'نقد','bank'=>'بانک','pos'=>'کارتخوان','transfer'=>'انتقال')[$payment['payment_method']]??$payment['payment_method']); ?></td><td><?php echo esc_html($payment['accounting_document_number']??'—'); ?></td></tr><?php endforeach; ?>
   <?php if(!$payments): ?><tr><td colspan="5">پرداختی ثبت نشده است.</td></tr><?php endif; ?></tbody></table>
-  <?php if($summary['payable_minor']>0): ?><h3>ثبت پرداخت جدید</h3><form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>"><input type="hidden" name="action" value="mda_record_purchase_payment"><input type="hidden" name="purchase_id" value="<?php echo (int)$posted['id']; ?>"><?php wp_nonce_field('mda_record_purchase_payment_'.(int)$posted['id']); ?>
+  <?php if($summary['payable_minor']>0): ?><h3>ثبت پرداخت جدید</h3><form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>"><input type="hidden" name="action" value="mda_record_purchase_payment"><input type="hidden" name="purchase_id" value="<?php echo (int)$posted['id']; ?>"><?php wp_nonce_field('mda_record_purchase_payment_'.(int)$posted['id']); ?><input type="hidden" name="request_key" value="<?php echo esc_attr(wp_generate_uuid4()); ?>">
   <label>مبلغ پرداخت (ریال) <input required type="number" min="1" max="<?php echo (int)$summary['payable_minor']; ?>" name="amount_minor"></label>
   <label>تاریخ پرداخت <input required type="date" name="payment_date" value="<?php echo esc_attr(current_time('Y-m-d')); ?>"></label>
   <label>صندوق/بانک <select required name="cash_account_id"><option value="">انتخاب حساب</option><?php foreach($cash as $a): ?><option value="<?php echo (int)$a['id']; ?>"><?php echo esc_html($a['account_code'].' — '.$a['account_name']); ?></option><?php endforeach; ?></select></label>
@@ -277,7 +279,7 @@ final class MDA_Admin {
   $returnRows=$db->prepare('SELECT r.return_number,r.document_date,rl.line_total_minor,rl.product_id,rl.variation_id,rl.quantity_scaled,rl.quantity_scale FROM mda_purchase_returns r JOIN mda_purchase_return_lines rl ON rl.return_id=r.id WHERE r.purchase_id=:id ORDER BY r.id,rl.id');
   $returnRows->execute(array(':id'=>$posted['id']));$returnHistory=$returnRows->fetchAll();
   ?>
-  <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>"><input type="hidden" name="action" value="mda_post_purchase_return"><input type="hidden" name="purchase_id" value="<?php echo (int)$posted['id']; ?>"><?php wp_nonce_field('mda_post_purchase_return_'.(int)$posted['id']); ?>
+  <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>"><input type="hidden" name="action" value="mda_post_purchase_return"><input type="hidden" name="purchase_id" value="<?php echo (int)$posted['id']; ?>"><?php wp_nonce_field('mda_post_purchase_return_'.(int)$posted['id']); ?><input type="hidden" name="request_key" value="<?php echo esc_attr(wp_generate_uuid4()); ?>">
   <table class="widefat striped"><thead><tr><th>کالا</th><th>خرید اولیه</th><th>مرجوع‌شده</th><th>موجودی فعلی انبار</th><th>حداکثر قابل ثبت</th><th>مقدار مرجوعی</th></tr></thead><tbody>
   <?php foreach($posted['lines'] as $line):
    $returnedQuery->execute(array(':line'=>$line['id']));$returnedQty=(int)$returnedQuery->fetchColumn();
@@ -310,7 +312,7 @@ final class MDA_Admin {
   self::guard();if(!MDA_Database::is_available()){echo '<div class="wrap"><div class="notice notice-error"><p>PDO_SQLite فعال نیست.</p></div></div>';return;}
   $db=MDA_Database::connection();$rows=MDA_Sales_Receipt_Service::all(200);$saleId=absint($_GET['sale_id']??0);$sale=null;$summary=null;$receipts=array();
   if($saleId){$q=$db->prepare('SELECT s.*,p.display_name,p.phone FROM mda_sales_documents s JOIN mda_parties p ON p.id=s.party_id WHERE s.id=:id');$q->execute(array(':id'=>$saleId));$sale=$q->fetch();if($sale){$summary=MDA_Sales_Receipt_Service::summary($saleId);$receipts=MDA_Sales_Receipt_Service::receipts($saleId);}}
-  $cash=$db->query("SELECT id,account_code,account_name FROM mda_accounts WHERE account_type='asset' AND is_control=0 AND is_active=1 AND archived_at IS NULL ORDER BY account_code")->fetchAll();$fmt=static function($v):string{return number_format((int)$v,0,'.',',');};
+  $cash=$db->query("SELECT id,account_code,account_name FROM mda_accounts WHERE account_code GLOB '11*' AND account_type='asset' AND is_control=0 AND allow_manual_entry=1 AND is_active=1 AND archived_at IS NULL ORDER BY account_code")->fetchAll();$fmt=static function($v):string{return number_format((int)$v,0,'.',',');};
   ?>
   <div class="wrap" dir="rtl"><h1>دریافت از مشتری</h1><p>ثبت فروش به معنی وصول وجه نیست. دریافت‌ها به‌صورت سند مستقل و تغییرناپذیر ثبت می‌شوند؛ تسویه درگاه تا زمان اتصال و تطبیق خودکار، در این فرم ثبت نمی‌شود.</p><?php self::notices(); ?>
   <?php if($sale&&$summary): ?><div style="background:#fff;padding:18px;max-width:1100px;margin:16px 0"><h2>فروش <?php echo esc_html($sale['document_number']); ?> — سفارش #<?php echo (int)$sale['order_id']; ?></h2>
@@ -350,7 +352,7 @@ final class MDA_Admin {
   self::guard();if(!MDA_Database::is_available()){echo '<div class="wrap" dir="rtl"><h1>مرجوعی فروش و استرداد</h1><div class="notice notice-error"><p>PDO_SQLite فعال نیست.</p></div></div>';return;}
   $saleId=absint($_GET['sale_id']??0);$returnId=absint($_GET['return_id']??0);$sale=$saleId?MDA_Sales_Return_Service::sale($saleId):null;$lines=$sale?MDA_Sales_Return_Service::sale_lines($saleId):array();$returns=$sale?MDA_Sales_Return_Service::returns($saleId):array();
   $return=$returnId?MDA_Sales_Return_Service::return_record($returnId):null;$refundSummary=$return?MDA_Sales_Refund_Service::summary($returnId):null;$refunds=$return?MDA_Sales_Refund_Service::refunds($returnId):array();
-  $cash=MDA_Database::connection()->query("SELECT id,account_code,account_name FROM mda_accounts WHERE account_type='asset' AND is_control=0 AND is_active=1 AND archived_at IS NULL ORDER BY account_code")->fetchAll();
+  $cash=MDA_Database::connection()->query("SELECT id,account_code,account_name FROM mda_accounts WHERE account_code GLOB '11*' AND account_type='asset' AND is_control=0 AND allow_manual_entry=1 AND is_active=1 AND archived_at IS NULL ORDER BY account_code")->fetchAll();
   $sales=MDA_Sales_Return_Service::sales(200);$fmt=static function($v):string{return number_format((int)$v,0,'.',',');};
   ?>
   <div class="wrap" dir="rtl"><h1>مرجوعی فروش و استرداد وجه</h1><p>مرجوعی کالا با بهای تمام‌شده snapshot فروش به موجودی برمی‌گردد. استرداد نقدی/بانکی فقط از محل بستانکاری واقعی مشتری انجام می‌شود؛ اتصال خودکار به درگاه در این مرحله وجود ندارد.</p><?php self::notices(); ?>
@@ -621,7 +623,7 @@ final class MDA_Admin {
 
  private static function notices(): void {
   if(!empty($_GET['mda_notice'])) {
-   $messages=array('party_saved'=>'طرف‌حساب ذخیره شد.','party_archived'=>'طرف‌حساب بایگانی شد.','account_saved'=>'حساب ذخیره شد.','purchase_draft_created'=>'پیش‌نویس خرید ایجاد شد.','purchase_posted'=>'فاکتور قطعی و موجودی ثبت شد.','purchase_already_posted'=>'این فاکتور قبلاً قطعی شده است.','payment_recorded'=>'پرداخت مرحله‌ای ثبت شد.','payment_duplicate'=>'این پرداخت قبلاً ثبت شده است.','purchase_return_posted'=>'مرجوعی و سند اصلاحی ثبت شد.','sales_receipt_recorded'=>'دریافت مشتری و سند حسابداری ثبت شد.','sales_receipt_duplicate'=>'این دریافت قبلاً ثبت شده است.','sales_return_posted'=>'مرجوعی فروش و سند اصلاحی ثبت شد.','sales_return_duplicate'=>'این مرجوعی قبلاً ثبت شده است.','sales_refund_posted'=>'استرداد وجه و سند حسابداری ثبت شد.','sales_refund_duplicate'=>'این استرداد قبلاً ثبت شده است.','reconciliation_run'=>'دسته تطبیق سفارش‌ها اجرا شد.','stock_sync_run'=>'دسته همگام‌سازی موجودی اجرا شد.','cash_recorded'=>'تراکنش صندوق/بانک و سند حسابداری ثبت شد.','cash_duplicate'=>'این تراکنش قبلاً ثبت شده است.','bank_statement_imported'=>'صورت‌حساب بانکی در SQLite وارد شد.','bank_statement_duplicate'=>'این صورت‌حساب قبلاً وارد شده است.','bank_line_matched'=>'ردیف صورت‌حساب با سند دفتر کل تطبیق داده شد.','bank_line_unmatched'=>'تطبیق ردیف لغو شد.','bank_line_ignored'=>'ردیف صورت‌حساب نادیده گرفته شد.','bank_line_unignored'=>'ردیف دوباره فعال شد.');
+   $messages=array('party_saved'=>'طرف‌حساب ذخیره شد.','party_archived'=>'طرف‌حساب بایگانی شد.','account_saved'=>'حساب ذخیره شد.','purchase_draft_created'=>'پیش‌نویس خرید ایجاد شد.','purchase_posted'=>'فاکتور قطعی و موجودی ثبت شد.','purchase_already_posted'=>'این فاکتور قبلاً قطعی شده است.','payment_recorded'=>'پرداخت مرحله‌ای ثبت شد.','payment_duplicate'=>'این پرداخت قبلاً ثبت شده است.','purchase_return_posted'=>'مرجوعی و سند اصلاحی ثبت شد.','purchase_return_duplicate'=>'این مرجوعی قبلاً ثبت شده است.','sales_receipt_recorded'=>'دریافت مشتری و سند حسابداری ثبت شد.','sales_receipt_duplicate'=>'این دریافت قبلاً ثبت شده است.','sales_return_posted'=>'مرجوعی فروش و سند اصلاحی ثبت شد.','sales_return_duplicate'=>'این مرجوعی قبلاً ثبت شده است.','sales_refund_posted'=>'استرداد وجه و سند حسابداری ثبت شد.','sales_refund_duplicate'=>'این استرداد قبلاً ثبت شده است.','reconciliation_run'=>'دسته تطبیق سفارش‌ها اجرا شد.','stock_sync_run'=>'دسته همگام‌سازی موجودی اجرا شد.','cash_recorded'=>'تراکنش صندوق/بانک و سند حسابداری ثبت شد.','cash_duplicate'=>'این تراکنش قبلاً ثبت شده است.','bank_statement_imported'=>'صورت‌حساب بانکی در SQLite وارد شد.','bank_statement_duplicate'=>'این صورت‌حساب قبلاً وارد شده است.','bank_line_matched'=>'ردیف صورت‌حساب با سند دفتر کل تطبیق داده شد.','bank_line_unmatched'=>'تطبیق ردیف لغو شد.','bank_line_ignored'=>'ردیف صورت‌حساب نادیده گرفته شد.','bank_line_unignored'=>'ردیف دوباره فعال شد.');
    $key=sanitize_key(wp_unslash($_GET['mda_notice']));$message=$messages[$key]??'عملیات با موفقیت انجام شد.';
    echo '<div class="notice notice-success"><p>'.esc_html($message).'</p></div>';
   }
