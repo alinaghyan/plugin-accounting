@@ -19,12 +19,16 @@ $db=MDA_Database::connection();$now='2026-11-16 10:00:00';
 $db->prepare("INSERT INTO mda_parties (party_code,display_name,is_supplier,created_at,updated_at) VALUES ('SUP-1','Supplier One',1,:n,:n)")->execute(array(':n'=>$now));
 $db->exec("INSERT INTO mda_party_roles (party_id,role_key,created_at) VALUES (1,'supplier','$now')");
 $warehouse=(int)$db->query("SELECT id FROM mda_warehouses WHERE warehouse_code='MAIN'")->fetchColumn();
+$cash=(int)$db->query("SELECT id FROM mda_accounts WHERE account_code='1110'")->fetchColumn();$equity=(int)$db->query("SELECT id FROM mda_accounts WHERE account_code='3000'")->fetchColumn();
+$db->prepare("INSERT INTO mda_documents (document_number,document_type,document_status,idempotency_key,payload_hash,currency_code,document_date,created_at,posted_at) VALUES ('TEST-OPENING-CASH','opening','posted','test-opening-cash-001','test-hash','IRR','2026-11-16',:n,:n)")->execute(array(':n'=>$now));$opening=(int)$db->lastInsertId();
+$openEntry=$db->prepare('INSERT INTO mda_journal_entries (document_id,entry_number,account_id,debit_minor,credit_minor,memo,created_at) VALUES (:doc,:n,:account,:debit,:credit,:memo,:now)');
+$openEntry->execute(array(':doc'=>$opening,':n'=>1,':account'=>$cash,':debit'=>1000,':credit'=>0,':memo'=>'Test opening cash',':now'=>$now));$openEntry->execute(array(':doc'=>$opening,':n'=>2,':account'=>$equity,':debit'=>0,':credit'=>1000,':memo'=>'Test opening equity',':now'=>$now));
 $draft=MDA_Purchase_Service::create_draft(array(
  'supplier_party_id'=>1,'warehouse_id'=>$warehouse,'document_date'=>'2026-11-16','currency_code'=>'IRR','idempotency_key'=>'test-purchase-draft-001',
  'lines'=>array(array('product_id'=>77,'variation_id'=>0,'product_name_snapshot'=>'Test product','sku_snapshot'=>'SKU-77','quantity_scaled'=>2000000,'quantity_scale'=>1000000,'unit_cost_minor'=>100)),
  'ancillary_costs'=>array(array('cost_code'=>'shipping','description'=>'Inbound shipping','amount_minor'=>20))
 ));
-$posted=MDA_Purchase_Service::post($draft,100,(int)$db->query("SELECT id FROM mda_accounts WHERE account_code='1110'")->fetchColumn(),'cash','test-purchase-payment-001');
+$posted=MDA_Purchase_Service::post($draft,100,$cash,'cash','test-purchase-payment-001');
 if($posted['total_minor']!==220||$posted['paid_minor']!==100||$posted['payable_minor']!==120)throw new RuntimeException('Purchase totals or supplier payable are incorrect.');
 $stock=(int)$db->query("SELECT SUM(quantity_scaled) FROM mda_inventory_movements WHERE product_id=77")->fetchColumn();
 if($stock!==2000000)throw new RuntimeException('Purchase receipt did not increase stock.');
@@ -32,9 +36,9 @@ $cost=$db->query("SELECT average_cost_minor,quantity_scaled FROM mda_product_cos
 if((int)$cost['average_cost_minor']!==110||(int)$cost['quantity_scaled']!==2000000)throw new RuntimeException('Weighted average cost calculation is incorrect.');
 if((int)$db->query("SELECT COUNT(*) FROM mda_purchase_price_history WHERE product_id=77")->fetchColumn()!==1)throw new RuntimeException('Purchase price history was not recorded.');
 if((int)$db->query("SELECT COUNT(*) FROM mda_purchase_payments WHERE purchase_id=".(int)$draft)->fetchColumn()!==1)throw new RuntimeException('Cash payment was not recorded.');
-$journal=$db->query("SELECT SUM(debit_minor) d,SUM(credit_minor) c FROM mda_journal_entries")->fetch();
+$journalQuery=$db->prepare("SELECT SUM(debit_minor) d,SUM(credit_minor) c FROM mda_journal_entries WHERE document_id=:id");$journalQuery->execute(array(':id'=>$posted['document_id']));$journal=$journalQuery->fetch();
 if((int)$journal['d']!==220||(int)$journal['c']!==220)throw new RuntimeException('Purchase journal is not balanced.');
-$again=MDA_Purchase_Service::post($draft,100,(int)$db->query("SELECT id FROM mda_accounts WHERE account_code='1110'")->fetchColumn(),'cash','test-purchase-payment-001');
+$again=MDA_Purchase_Service::post($draft,100,$cash,'cash','test-purchase-payment-001');
 if(empty($again['duplicate'])||(int)$db->query("SELECT COUNT(*) FROM mda_inventory_movements WHERE source_id='".(int)$draft."'")->fetchColumn()!==1)throw new RuntimeException('Purchase posting is not idempotent.');
 try{$db->exec("UPDATE mda_purchase_price_history SET unit_cost_minor=1 WHERE product_id=77");throw new RuntimeException('Purchase price history immutability failed.');}catch(PDOException $expected){}
 try{$db->exec("DELETE FROM mda_purchase_payments WHERE purchase_id=".(int)$draft);throw new RuntimeException('Payment history immutability failed.');}catch(PDOException $expected){}
