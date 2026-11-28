@@ -15,8 +15,10 @@ final class MDA_Purchase_Settlement_Service {
    $closed=$db->prepare("SELECT 1 FROM mda_financial_periods WHERE status='closed' AND :date BETWEEN starts_on AND ends_on");$closed->execute(array(':date'=>$date));if($closed->fetchColumn())throw new RuntimeException('ثبت پرداخت در دوره مالی بسته‌شده مجاز نیست.');
    $party=$db->prepare("SELECT 1 FROM mda_parties p JOIN mda_party_roles r ON r.party_id=p.id AND r.role_key='supplier' WHERE p.id=:id AND p.is_active=1 AND p.archived_at IS NULL");$party->execute(array(':id'=>$purchase['supplier_party_id']));if(!$party->fetchColumn())throw new RuntimeException('تأمین‌کننده فاکتور معتبر یا فعال نیست.');
    $paid=$db->prepare('SELECT COALESCE(SUM(amount_minor),0) FROM mda_purchase_payments WHERE purchase_id=:id');$paid->execute(array(':id'=>$purchaseId));$paidTotal=(int)$paid->fetchColumn();
-   if($amountMinor>(int)$purchase['total_minor']-$paidTotal)throw new InvalidArgumentException('مجموع پرداخت‌ها نمی‌تواند از مبلغ فاکتور بیشتر شود.');
-   $cash=$db->prepare("SELECT id FROM mda_accounts WHERE id=:id AND account_type='asset' AND is_active=1 AND archived_at IS NULL AND is_control=0");$cash->execute(array(':id'=>$cashAccountId));if(!$cash->fetchColumn())throw new InvalidArgumentException('حساب انتخاب‌شده صندوق/بانک فعال نیست.');
+   $returns=$db->prepare("SELECT COALESCE(SUM(total_minor),0) FROM mda_purchase_returns WHERE purchase_id=:id AND status='posted'");$returns->execute(array(':id'=>$purchaseId));$returnedTotal=(int)$returns->fetchColumn();$availablePayable=(int)$purchase['total_minor']-$paidTotal-$returnedTotal;
+   if($amountMinor>$availablePayable)throw new InvalidArgumentException('مبلغ پرداخت نمی‌تواند از مانده خالص بدهی پس از کسر مرجوعی‌ها بیشتر شود.');
+   $cash=$db->prepare("SELECT id FROM mda_accounts WHERE id=:id AND account_code GLOB '11*' AND account_type='asset' AND is_active=1 AND archived_at IS NULL AND is_control=0 AND allow_manual_entry=1");$cash->execute(array(':id'=>$cashAccountId));if(!$cash->fetchColumn())throw new InvalidArgumentException('حساب انتخاب‌شده باید صندوق یا بانک فعال و مجاز برای ثبت دستی باشد.');
+   $balance=$db->prepare("SELECT COALESCE(SUM(j.debit_minor-j.credit_minor),0) FROM mda_journal_entries j JOIN mda_documents d ON d.id=j.document_id WHERE j.account_id=:account AND d.currency_code=:currency AND d.document_status='posted'");$balance->execute(array(':account'=>$cashAccountId,':currency'=>$purchase['currency_code']));if((int)$balance->fetchColumn()<$amountMinor)throw new RuntimeException('موجودی حساب صندوق/بانک برای این پرداخت کافی نیست.');
    $ap=$db->prepare("SELECT id FROM mda_accounts WHERE account_code='2100' AND is_active=1 AND archived_at IS NULL AND is_control=1");$ap->execute();$apId=(int)$ap->fetchColumn();if(!$apId)throw new RuntimeException('حساب پرداختنی تأمین‌کنندگان تنظیم نشده است.');
    $mapping=$db->prepare("SELECT 1 FROM mda_party_control_accounts WHERE role_key='supplier' AND account_id=:id");$mapping->execute(array(':id'=>$apId));if(!$mapping->fetchColumn())throw new RuntimeException('حساب پرداختنی به تفصیلی تأمین‌کنندگان متصل نیست.');
    $number='MDA-PAY-'.gmdate('Ymd').'-'.strtoupper(bin2hex(random_bytes(4)));
@@ -29,13 +31,14 @@ final class MDA_Purchase_Settlement_Service {
    $ins->execute(array(':purchase'=>$purchaseId,':amount'=>$amountMinor,':cash'=>$cashAccountId,':method'=>$method,':key'=>$idempotencyKey,':paid'=>$date.' '.substr($now,11),':now'=>$now,':journal'=>$journalId));$paymentId=(int)$db->lastInsertId();
    $audit=$db->prepare('INSERT INTO mda_audit_logs (user_id,action,object_type,object_id,after_json,created_at) VALUES (:user,:action,:type,:id,:json,:now)');
    $audit->execute(array(':user'=>get_current_user_id()?:null,':action'=>'purchase_payment_recorded',':type'=>'purchase_payment',':id'=>(string)$paymentId,':json'=>wp_json_encode(array('purchase_id'=>$purchaseId,'amount_minor'=>$amountMinor,'journal_id'=>$journalId)),':now'=>$now));
-   return array('payment_id'=>$paymentId,'document_id'=>$journalId,'duplicate'=>false,'paid_minor'=>$paidTotal+$amountMinor,'payable_minor'=>(int)$purchase['total_minor']-$paidTotal-$amountMinor);
+   return array('payment_id'=>$paymentId,'document_id'=>$journalId,'duplicate'=>false,'paid_minor'=>$paidTotal+$amountMinor,'payable_minor'=>(int)$purchase['total_minor']-$returnedTotal-$paidTotal-$amountMinor);
   });
  }
  public static function summary(int $purchaseId): array {
   $db=MDA_Database::connection();$q=$db->prepare('SELECT total_minor FROM mda_purchase_documents WHERE id=:id');$q->execute(array(':id'=>$purchaseId));$total=$q->fetchColumn();if(false===$total)throw new RuntimeException('فاکتور پیدا نشد.');
   $p=$db->prepare('SELECT COALESCE(SUM(amount_minor),0) FROM mda_purchase_payments WHERE purchase_id=:id');$p->execute(array(':id'=>$purchaseId));$paid=(int)$p->fetchColumn();
-  return array('total_minor'=>(int)$total,'paid_minor'=>$paid,'payable_minor'=>(int)$total-$paid);
+  $r=$db->prepare("SELECT COALESCE(SUM(total_minor),0) FROM mda_purchase_returns WHERE purchase_id=:id AND status='posted'");$r->execute(array(':id'=>$purchaseId));$returned=(int)$r->fetchColumn();
+  return array('total_minor'=>(int)$total,'paid_minor'=>$paid,'returned_minor'=>$returned,'payable_minor'=>(int)$total-$paid-$returned);
  }
  public static function payments(int $purchaseId): array {$q=MDA_Database::connection()->prepare('SELECT p.*,a.account_code,a.account_name,d.document_number AS accounting_document_number FROM mda_purchase_payments p JOIN mda_accounts a ON a.id=p.cash_account_id LEFT JOIN mda_documents d ON d.id=p.accounting_document_id WHERE p.purchase_id=:id ORDER BY p.id');$q->execute(array(':id'=>$purchaseId));return $q->fetchAll();}
 }
